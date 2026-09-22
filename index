@@ -1,0 +1,3594 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calculadora de teste by otto</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+:root {
+  --bg: #12181b;
+  --panel: #1c2429;
+  --panel-raised: #212b31;
+  --line: #2c383f;
+  --amber: #f6c443;
+  --amber-dim: #b3902c;
+  --teal: #e0263c;
+  --text: #edefef;
+  --text-muted: #8b98a0;
+  --danger: #e8654a;
+  --success: #5cb85c;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-body: 'IBM Plex Sans', sans-serif;
+
+  /* ---- Marca d'água (ajuste aqui) ---- */
+  --watermark-opacity: 0.12;   /* 0 = invisível · 1 = totalmente visível */
+  --watermark-size: min(46vw, 620px);
+}
+* { box-sizing: border-box; }
+html { color-scheme: dark; }
+body {
+  margin: 0;
+  background: var(--bg);
+  background-image:
+    radial-gradient(circle at 100% 0%, rgba(224, 38, 60, 0.06), transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(246, 196, 67, 0.05), transparent 45%);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--teal); }
+code { font-family: var(--font-mono); font-size: 0.9em; }
+
+/* ---------- Cabeçalho + navegação ---------- */
+.site-header { padding: 2rem clamp(1.25rem, 4vw, 3rem) 0; border-bottom: 1px solid var(--line); }
+.site-header .mark { display: flex; align-items: center; gap: 0.75rem; font-family: var(--font-display); }
+.site-header .mark .code {
+  font-family: var(--font-mono); color: var(--amber); font-size: 0.95rem;
+  border: 1px solid var(--amber-dim); padding: 0.15rem 0.5rem; border-radius: 3px;
+}
+.site-header .mark .db-status {
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted);
+  border: 1px solid var(--line); padding: 0.15rem 0.5rem; border-radius: 3px;
+}
+.site-header .mark .db-status.online { color: var(--success); border-color: var(--success); }
+.site-header .mark .db-status.offline { color: var(--danger); border-color: var(--danger); }
+.site-header h1 { font-size: clamp(1.4rem, 2.2vw, 1.85rem); font-weight: 600; margin: 0.8rem 0 0.35rem; max-width: 42ch; }
+.site-header h1 .brand-highlight {
+  color: var(--teal);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.site-header h1 .test-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6em;
+  font-weight: 500;
+  color: var(--text-muted);
+  vertical-align: middle;
+}
+.site-header p.lede { color: var(--text-muted); max-width: 60ch; margin: 0 0 1.5rem; }
+
+
+/* ---------- Marca d'água de fundo ----------
+   A imagem vem do arquivo logo.png, que deve ficar na MESMA pasta do index.html.
+   Se o logo for escuro e sumir no fundo escuro, descomente a linha "filter". */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("logo.png");
+  background-repeat: no-repeat;
+  background-position: 100% 100%;
+  background-size: var(--watermark-size);
+  opacity: var(--watermark-opacity);
+  /* filter: invert(1); */
+  pointer-events: none;
+  z-index: 0;
+}
+.site-header, main, footer { position: relative; z-index: 1; }
+
+.navbar { display: flex; gap: 0.25rem; }
+.nav-btn {
+  background: none; border: none; color: var(--text-muted);
+  font-family: var(--font-display); font-size: 1rem; font-weight: 500;
+  padding: 0.7rem 1.15rem; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.nav-btn:hover { color: var(--text); }
+.nav-btn.active { color: var(--text); border-bottom-color: var(--amber); }
+.nav-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+
+main { padding: 2rem clamp(1.25rem, 4vw, 3rem) 4rem; max-width: 1240px; margin: 0 auto; }
+.view { display: none; }
+.view.active { display: block; }
+
+/* ---------- Formulários ---------- */
+.panel { background: none; border: none; border-top: 2px solid var(--teal); border-radius: 0; padding: 1.5rem 0 0; }
+.panel h2 { font-family: var(--font-display); font-size: 1.02rem; font-weight: 600; margin: 0 0 1.25rem; padding-bottom: 0; border-bottom: none; }
+.panel h3 { font-family: var(--font-display); font-size: 0.95rem; margin: 1.5rem 0 0.75rem; }
+.field { margin-bottom: 1rem; }
+.field label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+.field select, .field input {
+  width: 100%; background: var(--panel-raised); border: 1px solid var(--line);
+  color: var(--text); font-family: var(--font-mono); font-size: 0.95rem;
+  padding: 0.6rem 0.7rem; border-radius: 4px; transition: border-color 0.15s ease;
+}
+.field select:focus, .field input:focus { outline: none; border-color: var(--teal); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.field-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+@media (max-width: 640px) { .field-row, .field-row-3 { grid-template-columns: 1fr; } }
+.hint { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); margin: -0.5rem 0 1rem; }
+.hint strong { color: var(--text); }
+
+.btn {
+  background: var(--amber); color: #1a1400; border: none;
+  font-family: var(--font-display); font-weight: 600; font-size: 0.95rem;
+  padding: 0.75rem 1.1rem; border-radius: 4px; cursor: pointer; transition: background 0.15s ease;
+}
+.btn:hover { background: #ffb84f; }
+.btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.btn-block { width: 100%; margin-top: 0.3rem; }
+.btn-ghost {
+  background: none; border: 1px solid var(--line); color: var(--text-muted);
+  font-family: var(--font-body); font-size: 0.82rem; padding: 0.45rem 0.85rem;
+  border-radius: 4px; cursor: pointer;
+}
+.btn-ghost:hover { border-color: var(--teal); color: var(--teal); }
+.btn-ghost.danger:hover { border-color: var(--danger); color: var(--danger); }
+.form-msg { font-size: 0.85rem; margin-top: 0.6rem; min-height: 1.1em; }
+.form-msg.error { color: var(--danger); }
+.form-msg.ok { color: var(--success); }
+
+/* ---------- Recibo ---------- */
+.calc-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr); gap: 1.75rem; align-items: start; }
+@media (max-width: 900px) { .calc-grid { grid-template-columns: 1fr; } }
+.receipt { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--amber); border-radius: 2px; position: sticky; top: 1.5rem; overflow: hidden; }
+.receipt-head { padding: 1.4rem 1.6rem 1.15rem; }
+.receipt-head .route-code { font-family: var(--font-mono); color: var(--amber); font-size: 0.85rem; }
+.receipt-head .total-value { font-family: var(--font-display); font-weight: 700; font-size: clamp(2rem, 3.6vw, 2.6rem); margin: 0.3rem 0 0; }
+.receipt-head .eta { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.45rem; }
+.perforation { position: relative; height: 1px; background: var(--line); margin: 0 1.6rem; }
+.perforation::before, .perforation::after { content: ""; position: absolute; top: -8px; width: 16px; height: 16px; background: var(--bg); border-radius: 50%; }
+.perforation::before { left: -24px; }
+.perforation::after { right: -24px; }
+.receipt-lines { padding: 1.15rem 1.6rem 1.4rem; font-family: var(--font-mono); font-size: 0.85rem; }
+.receipt-lines .line { display: flex; justify-content: space-between; gap: 1rem; padding: 0.38rem 0; color: var(--text-muted); border-bottom: 1px dashed var(--line); }
+.receipt-lines .line:last-child { border-bottom: none; }
+.receipt-lines .line span:last-child { color: var(--text); }
+.receipt-lines .line.tax span:last-child { color: var(--text); }
+.receipt-lines .line.strong { color: var(--text); font-weight: 600; }
+.receipt-empty { padding: 2.4rem 1.6rem; color: var(--text-muted); font-size: 0.9rem; text-align: center; }
+
+/* ---------- Tabelas ---------- */
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+thead th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: 0.78rem; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--line); }
+tbody td { padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--line); font-family: var(--font-mono); font-size: 0.83rem; }
+tbody tr:hover { background: var(--panel-raised); }
+tr.row-link { cursor: pointer; }
+tr.row-link:hover .route-code-cell { text-decoration: underline; }
+tr.row-link:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+.route-code-cell { color: var(--amber); }
+.num { text-align: right; }
+.pos { color: var(--success); }
+.neg { color: var(--danger); }
+.margin-red { color: var(--danger); }
+.margin-amber { color: var(--amber); }
+.margin-green { color: var(--success); }
+.margin-chip {
+  display: inline-block; padding: 0.1rem 0.5rem; border-radius: 3px;
+  font-weight: 600; font-size: 0.8em;
+}
+.margin-chip.margin-red { background: rgba(232, 101, 74, 0.15); }
+.margin-chip.margin-amber { background: rgba(246, 196, 67, 0.15); }
+.margin-chip.margin-green { background: rgba(92, 184, 92, 0.15); }
+.table-scroll { overflow-x: auto; }
+.quick-add-box {
+  border: 1px dashed var(--line); border-radius: 4px; padding: 0.85rem;
+  margin-top: 0.5rem; background: var(--panel-raised);
+}
+.quick-add-box .field-row-3 { margin-bottom: 0.6rem; }
+.inline-link-btn {
+  background: none; border: none; color: var(--teal); font-family: var(--font-body);
+  font-size: 0.78rem; cursor: pointer; padding: 0; text-decoration: underline;
+}
+.empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1.4rem 0.7rem; text-align: center; border: 1px dashed var(--line); border-radius: 4px; }
+
+.tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--line); margin-bottom: 1.15rem; flex-wrap: wrap; }
+.tab-btn { background: none; border: none; color: var(--text-muted); font-family: var(--font-display); font-size: 0.92rem; padding: 0.6rem 1rem; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab-btn.active { color: var(--text); border-bottom-color: var(--amber); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.section-gap { margin-top: 2.5rem; }
+
+/* ---------- Dashboard ---------- */
+.kpi-row { display: flex; flex-wrap: wrap; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-bottom: 1.75rem; }
+.kpi { background: none; border: none; border-right: 1px solid var(--line); border-radius: 0; padding: 1rem 1.35rem; flex: 1 1 170px; }
+.kpi:last-child { border-right: none; }
+.kpi .kpi-label { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; }
+.kpi .kpi-value { font-family: var(--font-display); font-weight: 700; font-size: 1.55rem; line-height: 1.15; }
+.kpi .kpi-sub { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; }
+.dash-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.25rem; align-items: start; }
+@media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr; } }
+#routeMap { height: 420px; border-radius: 4px; border: 1px solid var(--line); background: var(--panel-raised); }
+.leaflet-container { background: #0e1416; font-family: var(--font-body); }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--panel-raised); color: var(--text); border: 1px solid var(--line); }
+.leaflet-popup-content { font-family: var(--font-mono); font-size: 0.8rem; }
+.leaflet-popup-content b { color: var(--amber); }
+.chart-wrap { width: 100%; overflow-x: auto; }
+.legend { display: flex; gap: 1.1rem; flex-wrap: wrap; font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-top: 0.7rem; }
+.legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 0.35rem; vertical-align: middle; }
+.demo-banner {
+  border: none; border-left: 3px solid var(--amber); background: none;
+  border-radius: 0; padding: 0.15rem 0 0.15rem 1rem; font-size: 0.85rem;
+  color: var(--text-muted); margin-bottom: 1.75rem;
+}
+.demo-banner strong { color: var(--amber); }
+footer { text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 2rem 1rem 3rem; border-top: 1px solid var(--line); }
+
+.route-result-panel {
+  grid-column: 1 / -1;
+}
+
+/* ---------- Colapsável ---------- */
+.collapse-header { display:flex; justify-content:flex-end; margin-bottom: 0.5rem; }
+.collapsible-wrap.collapsed { display: none; }
+
+/* ---------- Detalhe da rota avulsa ---------- */
+.avulsa-detail-row td { background: var(--panel-raised); padding: 0; }
+.avulsa-detail-inner { padding: 1rem 1.1rem 1.2rem; font-family: var(--font-mono); font-size: 0.82rem; }
+.avulsa-detail-inner .line { display:flex; justify-content:space-between; gap:1rem; padding:0.3rem 0; color: var(--text-muted); border-bottom: 1px dashed var(--line); }
+.avulsa-detail-inner .line:last-child { border-bottom: none; }
+.avulsa-detail-inner .line span:last-child { color: var(--text); }
+.avulsa-detail-inner .line.strong { color: var(--text); font-weight:600; }
+
+</style>
+</head>
+<body>
+  <header class="site-header">
+    <h1>Precificação de Rotas - Torre de controle</h1>
+    <nav class="navbar">
+      <button class="nav-btn active" data-view="view-calc" type="button">Calculadora</button>
+      <button class="nav-btn" data-view="view-dash" type="button">Dashboard</button>
+      <button class="nav-btn" data-view="view-config" type="button">Configurações</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ==================== CALCULADORA ==================== -->
+    <section class="view active" id="view-calc">
+      <div class="calc-grid">
+        <form class="panel" id="quoteForm">
+          <h2>Dados do envio</h2>
+          <p class="hint" style="margin-top:-0.25rem">Escolha a rota e o parceiro, informe o preço, pedágio e custo simulado. Veículo e nível de serviço são só informativos.</p>
+          <div class="field">
+            <label for="route">Rota</label>
+            <select id="route" required></select>
+          </div>
+          <p class="hint" id="routePreview"></p>
+
+          <div class="field">
+            <label for="partner">Parceiro / Carrier</label>
+            <select id="partner" required></select>
+          </div>
+          <button class="inline-link-btn" id="togglePartnerQuickAdd" type="button">+ Cadastrar novo parceiro</button>
+          <div class="quick-add-box" id="partnerQuickAdd" style="display:none">
+            <div class="field-row-3">
+              <div class="field" style="margin-bottom:0">
+                <label for="qaPartnerName">Nome</label>
+                <input type="text" id="qaPartnerName" placeholder="Ex: João Transportes" />
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label for="qaPartnerPlate">Placa</label>
+                <input type="text" id="qaPartnerPlate" placeholder="Ex: ABC1D23" style="text-transform:uppercase" />
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label for="qaPartnerPlate2">Placa 2 (opcional)</label>
+                <input type="text" id="qaPartnerPlate2" placeholder="Ex: DEF4E56" style="text-transform:uppercase" />
+              </div>
+            </div>
+            <div class="field-row" style="margin-top:0">
+              <div class="field" style="margin-bottom:0">
+                <label for="qaPartnerVehicle">Tipologia</label>
+                <select id="qaPartnerVehicle"></select>
+              </div>
+            </div>
+            <button class="btn-ghost" id="qaPartnerSave" type="button">Cadastrar parceiro</button>
+            <p class="form-msg" id="qaPartnerMsg"></p>
+          </div>
+
+          <div class="field-row" style="margin-top:1rem">
+            <div class="field">
+              <label for="vehicleType">Tipo de veículo (informativo)</label>
+              <select id="vehicleType" required></select>
+            </div>
+            <div class="field">
+              <label for="serviceLevel">Nível de serviço (informativo)</label>
+              <select id="serviceLevel" required></select>
+            </div>
+          </div>
+          <p class="hint" id="vehiclePreview"></p>
+
+          <div class="field-row-3">
+            <div class="field">
+              <label for="priceValue">Valor recebido do cliente (R$)</label>
+              <input type="number" id="priceValue" min="0" step="0.01" placeholder="0,00" required />
+            </div>
+            <div class="field">
+              <label for="tollValue">Pedágio (R$)</label>
+              <input type="number" id="tollValue" min="0" step="0.01" placeholder="0,00" />
+            </div>
+            <div class="field">
+              <label for="simCostValue">Valor pago ao motorista (R$)</label>
+              <input type="number" id="simCostValue" min="0" step="0.01" placeholder="0,00" />
+            </div>
+          </div>
+          <button class="btn btn-block" type="submit">Calcular frete</button>
+          <p class="form-msg error" id="formError"></p>
+        </form>
+
+        <aside class="receipt" id="receipt"></aside>
+      </div>
+
+      <section class="section-gap">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="tab-routes" type="button">Tabela de rotas</button>
+          <button class="tab-btn" data-tab="tab-avulsa" type="button">Rotas avulsas</button>
+          <button class="tab-btn" data-tab="tab-history" type="button">Histórico de cálculos</button>
+        </div>
+
+        <div class="tab-panel active" id="tab-routes">
+          <div class="table-scroll">
+            <table id="routesTable">
+              <thead><tr><th>Código</th><th>Origem</th><th>Destino</th><th class="num">Distância</th><th>Tipo</th><th class="num">Alíquota</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="hint" style="margin-top:0.75rem"></p>
+        </div>
+
+        <div class="tab-panel" id="tab-avulsa">
+          <div class="collapse-header">
+            <button class="btn-ghost" id="toggleAvulsaFields" type="button">▾ Minimizar campos</button>
+          </div>
+          <div class="collapsible-wrap" id="avulsaFieldsWrap">
+            <div class="panel" style="margin-bottom:2rem">
+              <h2>Importar em lote (.csv ou .xlsx)</h2>
+              <p class="hint">Preenche uma planilha em vez do formulário um a um. Baixe o modelo, preencha, suba de volta.</p>
+              <div class="field-row">
+                <div class="field">
+                  <label for="avulsaFile">Arquivo</label>
+                  <input type="file" id="avulsaFile" accept=".csv,.xlsx,.xls" />
+                </div>
+                <div class="field" style="display:flex; align-items:flex-end; padding-bottom:0.05rem">
+                  <button class="btn-ghost" id="downloadTemplate" type="button">Baixar modelo (.csv)</button>
+                </div>
+              </div>
+              <p class="form-msg" id="importMsg"></p>
+              <div id="importPreview"></div>
+            </div>
+
+            <div class="calc-grid">
+              <form class="panel" id="avulsaForm">
+                <h2>Adicionar rota avulsa</h2>
+                <div class="field-row">
+                  <div class="field">
+                    <label for="avCode">Código da rota</label>
+                    <input type="text" id="avCode" placeholder="Ex:CGH7>SPC9" required />
+                    <p class="hint" id="avCodeHint" style="margin:0.3rem 0 0"></p>
+                  </div>
+                  <div class="field">
+                    <label for="avVehicle">Tipologia</label>
+                    <select id="avVehicle" required></select>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field">
+                    <label for="avCidadeOrigem">Cidade de origem</label>
+                    <input type="text" id="avCidadeOrigem" placeholder="Ex: Betim" />
+                  </div>
+                  <div class="field">
+                    <label for="avUfOrigem">UF origem</label>
+                    <select id="avUfOrigem" required></select>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field">
+                    <label for="avCidade">Cidade de destino (ISS)</label>
+                    <select id="avCidade"></select>
+                  </div>
+                  <div class="field">
+                    <label for="avUfDestino">UF destino</label>
+                    <select id="avUfDestino" required></select>
+                  </div>
+                </div>
+                <p class="hint" id="avMunicipalHint"></p>
+                <div class="field-row-3">
+                  <div class="field">
+                    <label for="avReceber">Valor recebido do cliente (R$)</label>
+                    <input type="number" id="avReceber" min="0" step="0.01" placeholder="0,00" required />
+                  </div>
+                  <div class="field">
+                    <label for="avPagarPedagio">Pedágio (R$)</label>
+                    <input type="number" id="avPagarPedagio" min="0" step="0.01" placeholder="0,00" />
+                  </div>
+                  <div class="field">
+                    <label for="avPagarFrete">Valor pago ao motorista (R$)</label>
+                    <input type="number" id="avPagarFrete" min="0" step="0.01" placeholder="0,00" />
+                  </div>
+                </div>
+                <p class="hint" id="avPreview">Preencha os valores para ver a margem calculada.</p>
+                <button class="btn btn-block" type="submit">Salvar rota avulsa</button>
+                <p class="form-msg" id="avulsaMsg"></p>
+              </form>
+
+              <aside class="panel">
+                <h2>Como a margem é calculada</h2>
+                <div class="receipt-lines" style="padding:0">
+                  <div class="line"><span>Mesma cidade</span><span>Municipal → usa ISS</span></div>
+                  <div class="line"><span>Cidade diferente</span><span>Intermunicipal → usa ICMS</span></div>
+                  <div class="line"><span>PIS/COFINS</span><span>9,25% do preço</span></div>
+                  <div class="line"><span>Faturamento líquido</span><span>preço − imposto − PIS/COFINS</span></div>
+                  <div class="line"><span>Custo total</span><span>valor pago ao motorista + pedágio</span></div>
+                  <div class="line"><span>Lucro líquido</span><span>faturamento líquido − custo total</span></div>
+                  <div class="line"><span>Margem</span><span>(líquido − custo) ÷ líquido</span></div>
+                </div>
+                <p class="hint" style="margin-top:1rem">ICMS/ISS e PIS/COFINS incidem sobre o preço. As alíquotas vêm da tabela fiscal, editável em Configurações. A margem já é calculada em cima do lucro líquido (depois de tirar pedágio e custo simulado)  o "faturamento líquido" é só a etapa intermediária depois dos impostos.</p>
+              </aside>
+            </div>
+          </div>
+
+          <h3 style="font-family:var(--font-display);font-size:0.95rem;margin:2rem 0 0.75rem">Rotas avulsas lançadas</h3>
+          <div id="avulsaListWrap"></div>
+        </div>
+
+        <div class="tab-panel" id="tab-history">
+          <div id="historyWrap"></div>
+        </div>
+      </section>
+    </section>
+    <!-- ==================== DASHBOARD ==================== -->
+    <section class="view" id="view-dash">
+      <div class="demo-banner" id="demoBanner">
+        <strong>Dados operacionais:</strong> faturamento, custo e margem vêm das rotas avulsas e dos cálculos feitos na calculadora principal, ambos salvos no banco visíveis pra todo mundo que abrir o site.
+      </div>
+
+      <div class="kpi-row" id="kpiRow"></div>
+
+      <div class="dash-grid">
+        <div class="panel">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap">
+            <h2 style="margin:0">Faturamento e custo por mês</h2>
+            <select id="monthlyPeriodFilter" style="background:var(--panel-raised); border:1px solid var(--line); color:var(--text); font-family:var(--font-mono); font-size:0.8rem; padding:0.35rem 0.6rem; border-radius:4px">
+              <option value="3">Últimos 3 meses</option>
+              <option value="6" selected>Últimos 6 meses</option>
+              <option value="12">Últimos 12 meses</option>
+              <option value="0">Tudo</option>
+            </select>
+          </div>
+          <div class="chart-wrap" id="monthlyChart" style="margin-top:0.75rem"></div>
+          <div class="legend">
+            <span><span class="dot" style="background:var(--amber)"></span>Faturamento (colunas)</span>
+            <span><span class="dot" style="background:var(--teal)"></span>Custo (linha)</span>
+            <span><span class="dot" style="background:var(--success)"></span>Lucro (linha)</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Rede de rotas</h2>
+          <div id="routeMap"></div>
+          <div class="legend">
+            <span><span class="dot" style="background:#f6c443"></span>Rota oficial</span>
+            <span><span class="dot" style="background:#e0263c"></span>Rota avulsa</span>
+          </div>
+          <p class="hint" style="margin-top:0.7rem">Clique num ponto para ver a praça. As linhas mostram as rotas cadastradas (oficiais e avulsas geocodificadas).</p>
+        </div>
+
+        <div class="panel route-result-panel">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap">
+            <h2 style="margin:0">Resultado por rota</h2>
+            <button class="btn-ghost" id="toggleRouteResult" type="button">▾ Minimizar tabela</button>
+          </div>
+          <div class="collapsible-wrap" id="routeResultWrap">
+            <div class="tabs" style="margin-top:1rem">
+              <button class="tab-btn active" data-tab="tab-result-avulsa" type="button">Rotas avulsas</button>
+              <button class="tab-btn" data-tab="tab-result-oficial" type="button">Rotas oficiais</button>
+            </div>
+
+            <div class="tab-panel active" id="tab-result-avulsa">
+              <div class="table-scroll">
+                <table id="routeResultAvulsaTable">
+                  <thead><tr><th>Rota</th><th class="num">Viagens</th><th class="num">Faturamento</th><th class="num">Lucro</th><th class="num">Margem</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="tab-panel" id="tab-result-oficial">
+              <div class="table-scroll">
+                <table id="routeResultOficialTable">
+                  <thead><tr><th>Rota</th><th class="num">Km</th><th class="num">Viagens</th><th class="num">Faturamento</th><th class="num">Lucro</th><th class="num">Margem</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <p class="hint" style="margin-top:0.75rem" id="oficialZeroToggleWrap"></p>
+              <p class="hint" style="margin-top:0.25rem">Clique numa linha de rota oficial para focar a rota no mapa acima.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-grid section-gap">
+        <div class="panel">
+          <h2>Evolução da margem (%) mês a mês</h2>
+          <div class="chart-wrap" id="marginChart"></div>
+          <p class="hint" style="margin-top:0.7rem">Linha de margem simulada mês a mês. Vermelho abaixo de 11%, âmbar entre 11% e 14,9%, verde a partir de 15%.</p>
+        </div>
+        <div class="panel">
+          <h2>Ranking de parceiros por margem</h2>
+          <div class="table-scroll">
+            <table id="partnerRankingTable">
+              <thead><tr><th>Parceiro</th><th>Placa</th><th class="num">Viagens</th><th class="num">Margem média</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-grid section-gap">
+        <div class="panel">
+          <h2>Resultado por tipologia de veículo</h2>
+          <div class="table-scroll">
+            <table id="vehicleTable">
+              <thead><tr><th>Veículo</th><th class="num">Viagens</th><th class="num">Faturamento</th><th class="num">Custo</th><th class="num">Lucro</th><th class="num">Margem</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== CONFIGURAÇÕES ==================== -->
+    <section class="view" id="view-config">
+      <div class="demo-banner">
+        As regras abaixo valem só neste navegador até você clicar em <strong>Salvar no banco</strong>. Depois de salvas, todo mundo que abrir o site carrega a mesma configuração.
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="cfg-partners" type="button">Parceiros</button>
+        <button class="tab-btn" data-tab="cfg-vehicles" type="button">Veículos</button>
+        <button class="tab-btn" data-tab="cfg-cargo" type="button">Nível de serviço</button>
+        <button class="tab-btn" data-tab="cfg-routes" type="button">Rotas</button>
+        <button class="tab-btn" data-tab="cfg-tax" type="button">Tabela fiscal</button>
+      </div>
+
+      <div class="tab-panel active" id="cfg-partners">
+        <div class="panel">
+          <h2>Cadastro de parceiros / carriers</h2>
+          <p class="hint">Nome, placa e tipologia. Um parceiro pode rodar várias rotas diferentes — cadastre uma vez e reutilize na calculadora.</p>
+          <div class="table-scroll"><div id="partnerEditor"></div></div>
+          <div class="field-row-3" style="margin-top:1rem">
+            <div class="field" style="margin-bottom:0">
+              <label for="newPartnerName">Nome</label>
+              <input type="text" id="newPartnerName" placeholder="Ex: João Transportes" />
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label for="newPartnerPlate">Placa</label>
+              <input type="text" id="newPartnerPlate" placeholder="Ex: ABC1D23" style="text-transform:uppercase" />
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label for="newPartnerPlate2">Placa 2 (opcional)</label>
+              <input type="text" id="newPartnerPlate2" placeholder="Ex: DEF4E56" style="text-transform:uppercase" />
+            </div>
+          </div>
+          <div class="field-row" style="margin-top:0">
+            <div class="field" style="margin-bottom:0; max-width:280px">
+              <label for="newPartnerVehicle">Tipologia</label>
+              <select id="newPartnerVehicle"></select>
+            </div>
+          </div>
+          <button class="btn-ghost" id="addPartnerBtn" type="button" style="margin-top:0.75rem">+ Adicionar parceiro</button>
+          <br />
+          <button class="btn" id="savePartners" type="button" style="margin-top:1rem">Salvar no banco</button>
+          <p class="form-msg" id="partnersMsg"></p>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="cfg-vehicles">
+        <div class="panel">
+          <h2>Tipologia de veículo</h2>
+          <p class="hint">Nome e capacidade editáveis. Capacidade é só rótulo informativo — não entra em nenhuma conta.</p>
+          <div class="table-scroll"><div id="vehicleEditor"></div></div>
+          <div class="field-row" style="margin-top:1rem">
+            <div class="field" style="margin-bottom:0">
+              <label for="newVehicleLabel">Nome da tipologia</label>
+              <input type="text" id="newVehicleLabel" placeholder="Ex: Bitrem" />
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label for="newVehicleCapacity">Capacidade (kg)</label>
+              <input type="number" id="newVehicleCapacity" min="0" step="1" placeholder="Ex: 15000" />
+            </div>
+          </div>
+          <button class="btn-ghost" id="addVehicleBtn" type="button" style="margin-top:0.75rem">+ Adicionar tipologia</button>
+          <br />
+          <button class="btn" id="saveVehicles" type="button" style="margin-top:1rem">Salvar no banco</button>
+          <p class="form-msg" id="vehiclesMsg"></p>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="cfg-cargo">
+        <div class="panel" style="max-width:640px">
+          <h2>Níveis de serviço</h2>
+          <p class="hint">Só o número de dias de viagem — informativo, não afeta o preço.</p>
+          <div class="table-scroll"><div id="serviceEditor"></div></div>
+          <button class="btn" id="saveService" type="button" style="margin-top:1rem">Salvar no banco</button>
+          <p class="form-msg" id="serviceMsg"></p>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="cfg-routes">
+        <div class="panel" style="margin-bottom:2rem">
+          <h2>Importar rotas oficiais em lote (.csv ou .xlsx)</h2>
+          <p class="hint">Preenche uma planilha em vez de cadastrar rota por rota. Baixe o modelo, preencha e suba de volta. Rota com o mesmo código de uma já existente é atualizada; código novo vira rota nova.</p>
+          <div class="field-row">
+            <div class="field">
+              <label for="routeImportFile">Arquivo</label>
+              <input type="file" id="routeImportFile" accept=".csv,.xlsx,.xls" />
+            </div>
+            <div class="field" style="display:flex; align-items:flex-end; padding-bottom:0.05rem">
+              <button class="btn-ghost" id="downloadRouteTemplate" type="button">Baixar modelo (.csv)</button>
+            </div>
+          </div>
+          <p class="form-msg" id="routeImportMsg"></p>
+          <div id="routeImportPreview"></div>
+        </div>
+        <div class="panel">
+          <h2>Rotas da tabela padrão</h2>
+          <p class="hint">Distância em km. UF de origem e destino definem o ICMS; a cidade de destino define o ISS.</p>
+          <div class="table-scroll"><div id="routeEditor"></div></div>
+          <button class="btn-ghost" id="fixRouteCoords" type="button" style="margin-top:0.75rem">📍 Corrigir coordenadas ausentes/zeradas</button>
+          <p class="hint" style="margin:0.4rem 0 0">Geocodifica de novo qualquer rota que esteja sem latitude/longitude ou "presa" em 0,0 (bug antigo que jogava a rota no meio do oceano no mapa). Salva no banco automaticamente ao terminar.</p>
+          <br />
+          <button class="btn" id="saveRoutes" type="button" style="margin-top:1rem">Salvar no banco</button>
+          <p class="form-msg" id="routesMsg"></p>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="cfg-tax">
+        <div class="panel">
+          <h2>Consulta de alíquotas</h2>
+          <p class="hint">Tabela carregada do arquivo fiscal: <strong id="taxCount"></strong>. Não operamos AC, AP, RO e RR  rotas com esses estados são bloqueadas no cálculo.</p>
+          <div class="field-row-3">
+            <div class="field">
+              <label for="taxUfO">UF origem</label>
+              <select id="taxUfO"></select>
+            </div>
+            <div class="field">
+              <label for="taxUfD">UF destino</label>
+              <select id="taxUfD"></select>
+            </div>
+            <div class="field">
+              <label for="taxCidade">Cidade (ISS)</label>
+              <select id="taxCidade"></select>
+            </div>
+          </div>
+          <div class="receipt-lines" style="padding:0.5rem 0 0">
+            <div class="line strong"><span>ICMS</span><span id="taxIcmsOut">—</span></div>
+            <div class="line strong"><span>ISS</span><span id="taxIssOut">—</span></div>
+          </div>
+          <h3>Todas as alíquotas de ICMS</h3>
+          <div class="table-scroll" style="max-height:340px;overflow-y:auto">
+            <table id="icmsTable"><thead><tr><th>Origem</th><th>Destino</th><th class="num">ICMS</th></tr></thead><tbody></tbody></table>
+          </div>
+          <h3>Alíquotas de ISS por cidade</h3>
+          <div class="table-scroll" style="max-height:340px;overflow-y:auto">
+            <table id="issTable"><thead><tr><th>Cidade</th><th class="num">ISS</th></tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+
+        <div class="panel" id="fiscalEditGate" style="margin-top:2rem">
+          <h2>Editar tabela fiscal (Proteção contra exclusão acidental)</h2>
+          <p class="hint">Editar ou excluir ICMS/ISS exige senha, só pra evitar mudança sem querer. A consulta acima continua aberta pra todo mundo.</p>
+          <div class="field-row">
+            <div class="field" style="margin-bottom:0">
+              <label for="fiscalEditPassword">Senha</label>
+              <input type="password" id="fiscalEditPassword" placeholder="Senha de edição" />
+            </div>
+            <div class="field" style="display:flex; align-items:flex-end; margin-bottom:0">
+              <button class="btn" id="fiscalEditUnlock" type="button">Desbloquear</button>
+            </div>
+          </div>
+          <p class="form-msg" id="fiscalEditMsg"></p>
+        </div>
+
+        <div id="fiscalEditContent" style="display:none">
+        <div class="panel" style="margin-top:2rem">
+          <h2>Editar alíquotas de ICMS</h2>
+          <p class="hint">Alíquota por par de UF (origem → destino). Alterações aqui só valem depois de "Salvar no banco" — e passam a valer pra todo mundo que abrir o site.</p>
+          <div class="table-scroll" style="max-height:340px;overflow-y:auto"><div id="icmsEditor"></div></div>
+          <div class="field-row-3" style="margin-top:1rem">
+            <div class="field" style="margin-bottom:0">
+              <label for="newIcmsOrigem">UF origem</label>
+              <input type="text" id="newIcmsOrigem" placeholder="Ex: SP" maxlength="2" style="text-transform:uppercase" />
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label for="newIcmsDestino">UF destino</label>
+              <input type="text" id="newIcmsDestino" placeholder="Ex: MG" maxlength="2" style="text-transform:uppercase" />
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label for="newIcmsRate">Alíquota (%)</label>
+              <input type="number" id="newIcmsRate" min="0" step="0.01" placeholder="Ex: 12" />
+            </div>
+          </div>
+          <button class="btn-ghost" id="addIcmsBtn" type="button" style="margin-top:0.75rem">+ Adicionar/atualizar par</button>
+          <br />
+          <button class="btn" id="saveIcms" type="button" style="margin-top:1rem">Salvar no banco</button>
+          <p class="form-msg" id="icmsEditMsg"></p>
+        </div>
+
+        <div class="panel" style="margin-top:2rem">
+          <h2>Editar alíquotas de ISS</h2>
+          <p class="hint">Alíquota por cidade — usada quando origem e destino da rota são a mesma cidade (rota municipal). Use o formato "Cidade-UF", igual aparece nos dropdowns.</p>
+          <div class="table-scroll" style="max-height:340px;overflow-y:auto"><div id="issEditor"></div></div>
+          <div class="field-row" style="margin-top:1rem">
+            <div class="field" style="margin-bottom:0">
+              <label for="newIssCidade">Cidade (Ex: São Paulo-SP)</label>
+              <input type="text" id="newIssCidade" placeholder="Ex: São Paulo-SP" />
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label for="newIssRate">Alíquota (%)</label>
+              <input type="number" id="newIssRate" min="0" step="0.01" placeholder="Ex: 5" />
+            </div>
+          </div>
+          <button class="btn-ghost" id="addIssBtn" type="button" style="margin-top:0.75rem">+ Adicionar/atualizar cidade</button>
+          <br />
+          <button class="btn" id="saveIss" type="button" style="margin-top:1rem">Salvar no banco</button>
+          <p class="form-msg" id="issEditMsg"></p>
+        </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>Regras de precificação e dados de operação provisórios. Tabela fiscal de ICMS e ISS editável em Configurações, salva no banco.<br /><span style="opacity:0.5; font-size:0.8em;">By Otto</span></footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script type="module">
+/* ============================================================
+ * 1. FIREBASE — conexão com o Firestore
+ * ============================================================ */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
+  deleteDoc, query, orderBy, onSnapshot, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA86Uh3-TRdxP2Tt82TfJs9VDakRDeCT5I",
+  authDomain: "frete-calculadoahoc.firebaseapp.com",
+  projectId: "frete-calculadoahoc",
+  storageBucket: "frete-calculadoahoc.firebasestorage.app",
+  messagingSenderId: "781970526103",
+  appId: "1:781970526103:web:c6e2217eeddfcaabdc3ed2"
+};
+
+let db = null;
+let dbOnline = false;
+
+function setDbStatus(state, text) {
+  const el = document.getElementById("dbStatus");
+  if (!el) { console.log("[banco]", text); return; }
+  el.className = "db-status" + (state ? " " + state : "");
+  el.textContent = text;
+}
+
+try {
+  const fbApp = initializeApp(firebaseConfig);
+  db = getFirestore(fbApp);
+  dbOnline = true;
+} catch (err) {
+  console.error("Falha ao iniciar o Firebase:", err);
+  setDbStatus("offline", "banco: indisponível");
+}
+
+/* ============================================================
+ * 2. TABELA FISCAL — gerada da planilha enviada
+ *    ICMS: UF origem -> UF destino (%)  |  ISS: cidade (%)
+ *    Não há cobertura para AC, AP, RO e RR (não operamos).
+ * ============================================================ */
+const DEFAULT_ICMS_TABLE = {
+  "SP-MG": 0,
+  "SP-AL": 7,
+  "SP-PB": 7,
+  "SP-RJ": 12,
+  "SP-DF": 7,
+  "SP-PE": 7,
+  "SP-RS": 12,
+  "SP-PR": 12,
+  "SP-BA": 7,
+  "SP-CE": 7,
+  "SP-SC": 12,
+  "SP-GO": 7,
+  "SP-ES": 7,
+  "SP-SP": 18,
+  "MG-MG": 0,
+  "MG-AL": 7,
+  "MG-SP": 12,
+  "MG-PB": 7,
+  "MG-RJ": 12,
+  "MG-DF": 7,
+  "MG-PE": 7,
+  "MG-RS": 12,
+  "MG-PR": 12,
+  "MG-BA": 7,
+  "MG-CE": 7,
+  "MG-SC": 12,
+  "MG-GO": 7,
+  "MG-ES": 7,
+  "AL-MG": 12,
+  "AL-SP": 12,
+  "AL-PB": 12,
+  "AL-RJ": 12,
+  "AL-DF": 12,
+  "AL-PE": 12,
+  "AL-RS": 12,
+  "AL-PR": 12,
+  "AL-BA": 12,
+  "AL-CE": 12,
+  "AL-SC": 12,
+  "AL-GO": 12,
+  "AL-ES": 12,
+  "AL-AL": 20,
+  "BA-AL": 12,
+  "BA-MG": 12,
+  "BA-SP": 12,
+  "BA-PB": 12,
+  "BA-RJ": 12,
+  "BA-DF": 12,
+  "BA-PE": 12,
+  "BA-RS": 12,
+  "BA-PR": 12,
+  "BA-CE": 12,
+  "BA-SC": 12,
+  "BA-GO": 12,
+  "BA-ES": 12,
+  "BA-BA": 20.5,
+  "CE-AL": 12,
+  "CE-MG": 12,
+  "CE-SP": 12,
+  "CE-PB": 12,
+  "CE-RJ": 12,
+  "CE-DF": 12,
+  "CE-PE": 12,
+  "CE-RS": 12,
+  "CE-PR": 12,
+  "CE-BA": 12,
+  "CE-SC": 12,
+  "CE-GO": 12,
+  "CE-ES": 12,
+  "CE-CE": 20,
+  "DF-DF": 20,
+  "DF-AL": 12,
+  "DF-MG": 12,
+  "DF-SP": 12,
+  "DF-PB": 12,
+  "DF-RJ": 12,
+  "DF-PE": 12,
+  "DF-RS": 12,
+  "DF-PR": 12,
+  "DF-BA": 12,
+  "DF-CE": 12,
+  "DF-SC": 12,
+  "DF-GO": 12,
+  "DF-ES": 12,
+  "ES-ES": 17,
+  "ES-AL": 12,
+  "ES-MG": 12,
+  "ES-SP": 12,
+  "ES-PB": 12,
+  "ES-RJ": 12,
+  "ES-DF": 12,
+  "ES-PE": 12,
+  "ES-RS": 12,
+  "ES-PR": 12,
+  "ES-BA": 12,
+  "ES-CE": 12,
+  "ES-SC": 12,
+  "ES-GO": 12,
+  "GO-GO": 19,
+  "GO-AL": 12,
+  "GO-MG": 12,
+  "GO-SP": 12,
+  "GO-PB": 12,
+  "GO-RJ": 12,
+  "GO-DF": 12,
+  "GO-PE": 12,
+  "GO-RS": 12,
+  "GO-PR": 12,
+  "GO-BA": 12,
+  "GO-CE": 12,
+  "GO-SC": 12,
+  "GO-ES": 12,
+  "PB-PB": 20,
+  "PB-AL": 12,
+  "PB-MG": 12,
+  "PB-SP": 12,
+  "PB-RJ": 12,
+  "PB-DF": 12,
+  "PB-PE": 12,
+  "PB-RS": 12,
+  "PB-PR": 12,
+  "PB-BA": 12,
+  "PB-CE": 12,
+  "PB-SC": 12,
+  "PB-GO": 12,
+  "PB-ES": 12,
+  "PE-PE": 0,
+  "PE-AL": 12,
+  "PE-MG": 12,
+  "PE-SP": 12,
+  "PE-PB": 12,
+  "PE-RJ": 12,
+  "PE-DF": 12,
+  "PE-RS": 12,
+  "PE-PR": 12,
+  "PE-BA": 12,
+  "PE-CE": 12,
+  "PE-SC": 12,
+  "PE-GO": 12,
+  "PE-ES": 12,
+  "PR-PR": 19.5,
+  "PR-AL": 7,
+  "PR-MG": 12,
+  "PR-SP": 12,
+  "PR-PB": 7,
+  "PR-RJ": 12,
+  "PR-DF": 7,
+  "PR-PE": 7,
+  "PR-RS": 12,
+  "PR-BA": 7,
+  "PR-CE": 7,
+  "PR-SC": 12,
+  "PR-GO": 7,
+  "PR-ES": 7,
+  "RJ-RJ": 20,
+  "RJ-AL": 7,
+  "RJ-MG": 12,
+  "RJ-SP": 12,
+  "RJ-PB": 7,
+  "RJ-DF": 7,
+  "RJ-PE": 7,
+  "RJ-RS": 12,
+  "RJ-PR": 12,
+  "RJ-BA": 7,
+  "RJ-CE": 7,
+  "RJ-SC": 12,
+  "RJ-GO": 7,
+  "RJ-ES": 7,
+  "RS-RS": 17,
+  "RS-AL": 7,
+  "RS-MG": 12,
+  "RS-SP": 12,
+  "RS-PB": 7,
+  "RS-RJ": 12,
+  "RS-DF": 7,
+  "RS-PE": 7,
+  "RS-PR": 12,
+  "RS-BA": 7,
+  "RS-CE": 7,
+  "RS-SC": 12,
+  "RS-GO": 7,
+  "RS-ES": 7,
+  "SC-SC": 17,
+  "SC-AL": 7,
+  "SC-MG": 12,
+  "SC-SP": 12,
+  "SC-PB": 7,
+  "SC-RJ": 12,
+  "SC-DF": 7,
+  "SC-PE": 7,
+  "SC-RS": 12,
+  "SC-PR": 12,
+  "SC-BA": 7,
+  "SC-CE": 7,
+  "SC-GO": 7,
+  "SC-ES": 7,
+  "SE-PE": 12,
+  "PE-RN": 12,
+  "PE-MA": 12,
+  "PE-TO": 12,
+  "PE-PI": 12,
+  "SP-MT": 7,
+  "SP-MS": 7,
+  "SP-AM": 7,
+  "MS-MT": 12,
+  "MS-SP": 12,
+  "MT-MT": 17,
+  "CE-RN": 12,
+  "CE-MA": 12,
+  "CE-PI": 12,
+  "CE-PA": 12,
+  "AM-RJ": 12,
+  "RN-PE": 12,
+  "BA-SE": 12,
+  "MA-SP": 12,
+  "PI-SP": 12,
+  "PE-SE": 12,
+  "MT-SP": 12,
+  "MA-CE": 12,
+  "RN-CE": 12,
+  "PA-CE": 12,
+  "SE-BA": 12,
+  "SP-MA": 7,
+  "SP-PI": 7,
+  "MT-MS": 12,
+  "MA-PE": 12,
+  "TO-PE": 12,
+  "PI-PE": 12,
+  "PI-CE": 12
+};
+
+const DEFAULT_ISS_TABLE = {
+  "Arapiraca-AL": 5,
+  "Barbacena-MG": 5,
+  "Bauru-SP": 2,
+  "Bayeux-PB": 5,
+  "Belford Roxo-RJ": 3,
+  "Belo Horizonte-MG": 5,
+  "Betim-MG": 5,
+  "Brasília-DF": 5,
+  "Cabo de Santo Agostinho-PE": 5,
+  "Cajamar-SP": 3,
+  "Canoas-RS": 5,
+  "Contagem-MG": 5,
+  "Curitiba-PR": 5,
+  "Divinópolis-MG": 5,
+  "Duque de Caxias-RJ": 5,
+  "Embu das Artes-SP": 2,
+  "Franca-SP": 5,
+  "Guarulhos-SP": 5,
+  "Indaiatuba-SP": 2.5,
+  "Ipatinga-MG": 3,
+  "Itabuna-BA": 5,
+  "Itaitinga-CE": 5,
+  "Maringá-PR": 3,
+  "Mauá-SP": 4,
+  "Montes Claros-MG": 4.5,
+  "Nova Santa Rita-RS": 2,
+  "Osasco-SP": 3,
+  "Palhoça-SC": 5,
+  "Petrolina-PE": 5,
+  "Ponta Grossa-PR": 5,
+  "Presidente Prudente-SP": 5,
+  "Ribeirão Preto-SP": 5,
+  "Rio de Janeiro-RJ": 5,
+  "Rio Verde-GO": 5,
+  "Salvador-BA": 5,
+  "São Bernardo do Campo-SP": 3,
+  "São João de Meriti-RJ": 2.5,
+  "São José do Rio Preto-SP": 5,
+  "São José-SC": 2,
+  "São Paulo-SP": 5,
+  "Sumaré-SP": 2,
+  "Viana-ES": 5,
+  "Vitória da Conquista-BA": 5,
+  "Fortaleza-CE": 5
+};
+
+/* ============================================================
+ * 2.1 DICIONÁRIO DE GALPÕES (código -> cidade)
+ * ============================================================ */
+const HUB_CODES = {"CGH7": "Cajamar-SP", "SOG9": "Mogi Mirim-SP", "SPC9": "Poços de Caldas-MG", "CNF5": "Itapeva-SP", "DSP4": "São Bernardo do Campo-SP", "CNF7": "Contagem-MG", "SJF9": "Juiz de Fora-MG", "TJFA": "Contagem-MG", "EPC8": "Poços de Caldas-MG", "ELP7": "Sumaré-SP", "EJF8": "Juiz de Fora-MG", "GIG7": "Rio de Janeiro-RJ", "EPP8": "Presidente Prudente-SP", "EUR8": "Bauru-SP", "DRJ5": "Rio de Janeiro-RJ", "GRU5": "Cajamar-SP", "DSP5": "Indaiatuba-SP", "CNF1": "Betim-MG", "CNF2": "Ribeirão das Neves-MG", "SDV9": "Belo Horizonte-MG", "PDN1": "Divinópolis-MG", "ELP8": "Embu das Artes-SP", "GRU9": "Cajamar-SP", "XCV9": "Cajamar-SP", "CGH9": "Cajamar-SP", "DSP2": "Guarulhos-SP", "TBAV": "Jundiaí-SP", "ESA8": "Osasco-SP", "DBR9": "Osasco-SP", "DBH5": "Belo Horizonte-MG", "SCL9": "Montes Claros-MG", "SRP9": "Ribeirão Preto-SP", "SFC9": "Franca-SP", "SPG9": "Ipatinga-MG", "SGV9": "Governador Valadares-MG", "REC9": "Cabo de Santo Agostinho-PE", "DPB3": "Bayeux-PB", "ESP8": "Guarulhos-SP", "SCO9": "Contagem-MG", "VBSA": "Belo Horizonte-MG", "LBH9": "Belo Horizonte-MG", "EUI8": "Tatuí-SP", "DMG2": "Contagem-MG", "ENG8": "Ubá-MG", "EOU8": "Pouso Alegre-MG", "EJU8": "Jundiaí-SP", "XSP7": "Jundiaí-SP", "GRU8": "Cajamar-SP", "CWB1": "Curitiba-PR", "DPR2": "Curitiba-PR", "SBA9": "São Paulo-SP", "SHM9": "São Paulo-SP", "FOR3": "Fortaleza-CE", "SCG9": "Campo Grande-MS", "SCB9": "Cuiabá-MT", "POA1": "Nova Santa Rita-RS", "XCP1": "Campinas-SP", "SRL9": "Rondonópolis-MT", "ERJ8": "Rio de Janeiro-RJ", "PPE2": "Sete Lagoas-MG", "SUA9": "Uberaba-MG"};
+
+function decodeHubRoute(codeStr) {
+  const codes = String(codeStr ?? "").split(/[>-]{1,2}/).map(c => c.trim().toUpperCase()).filter(Boolean);
+  if (codes.length < 2) return null;
+  const cities = codes.map(c => HUB_CODES[c]);
+  if (cities.some(c => !c)) return null;
+  return { codes, cities, origin: cities[0], destination: cities[cities.length - 1] };
+}
+
+const UF_SEM_COBERTURA = ["AC", "AP", "RO", "RR"];
+function getUfsCobertas() {
+  return [...new Set(Object.keys(CONFIG.icmsTable).flatMap(k => k.split("-")))].sort();
+}
+
+function lookupIcms(ufOrigem, ufDestino) {
+  if (!ufOrigem || !ufDestino) {
+    throw new Error("Rota sem UF de origem/destino definida — não é possível calcular o ICMS.");
+  }
+  if (UF_SEM_COBERTURA.includes(ufOrigem) || UF_SEM_COBERTURA.includes(ufDestino)) {
+    throw new Error(`Não operamos em ${UF_SEM_COBERTURA.includes(ufOrigem) ? ufOrigem : ufDestino}. Escolha outra UF.`);
+  }
+  const key = `${ufOrigem}-${ufDestino}`;
+  const rate = CONFIG.icmsTable[key];
+  if (rate === undefined) {
+    throw new Error(`Sem alíquota de ICMS cadastrada para ${ufOrigem} → ${ufDestino}. Adicione na planilha fiscal.`);
+  }
+  return rate;
+}
+
+function lookupIss(cidade) {
+  if (!cidade) return 0;
+  return CONFIG.issTable[cidade] ?? 0;
+}
+
+/* ============================================================
+ * 3. CONFIGURAÇÃO PADRÃO — editável na aba Configurações
+ * ============================================================ */
+const DEFAULT_CONFIG = {
+  vehicles: [
+    { id: "vuc",        label: "VUC",         capacityKg: 3000 },
+    { id: "tresquarto", label: "3/4",         capacityKg: 4500 },
+    { id: "truck",      label: "Truck",       capacityKg: 14000 },
+    { id: "carreta",    label: "Carreta",     capacityKg: 27000 },
+    { id: "carreta32",  label: "Carreta 32P", capacityKg: 32000 }
+  ],
+  serviceLevels: [
+    { id: "economico", label: "Econômico", etaDays: 8 },
+    { id: "padrao",    label: "Padrão",    etaDays: 5 },
+    { id: "expresso",  label: "Expresso",  etaDays: 1 }
+  ],
+  partners: [],
+  routes: [],
+  icmsTable: DEFAULT_ICMS_TABLE,
+  issTable: DEFAULT_ISS_TABLE
+};
+
+let CONFIG = structuredClone(DEFAULT_CONFIG);
+
+/* ============================================================
+ * 4. MOTOR DE CÁLCULO
+ * ============================================================ */
+const PIS_COFINS_RATE = 0.0925;
+
+function marginColor(margin) {
+  if (margin < 11) return "red";
+  if (margin <= 20) return "amber";
+  return "green";
+}
+
+function cityNameOnly(s) {
+  return String(s ?? "")
+    .split(/[-,]/)[0]
+    .trim()
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function calculateQuote({ routeId, partnerId, vehicleId, serviceLevelId, price, tollValue, simulatedCost }) {
+  const route   = CONFIG.routes.find(r => r.id === routeId);
+  const partner = CONFIG.partners.find(p => p.id === partnerId);
+  const vehicle = CONFIG.vehicles.find(v => v.id === vehicleId);
+  const service = CONFIG.serviceLevels.find(s => s.id === serviceLevelId);
+
+  if (!route) throw new Error("Selecione uma rota.");
+  if (!partner) throw new Error("Selecione ou cadastre um parceiro.");
+  if (!vehicle) throw new Error("Selecione um veículo.");
+  if (!service) throw new Error("Selecione um nível de serviço.");
+  if (!(price > 0)) throw new Error("Informe um preço válido, maior que zero.");
+
+  const toll = tollValue > 0 ? tollValue : 0;
+  const simCost = simulatedCost > 0 ? simulatedCost : 0;
+
+  const isMunicipal = cityNameOnly(route.origin) && cityNameOnly(route.destination)
+    && cityNameOnly(route.origin) === cityNameOnly(route.destination);
+
+  let taxType, taxRate;
+  if (isMunicipal) {
+    taxType = "ISS";
+    taxRate = lookupIss(route.cidadeIss || route.destination);
+  } else {
+    taxType = "ICMS";
+    taxRate = lookupIcms(route.ufOrigem, route.ufDestino);
+  }
+
+  const taxValue = price * (taxRate / 100);
+  const pisCofins = price * PIS_COFINS_RATE;
+  const netRevenue = price - taxValue - pisCofins;
+  const pricePerKm = route.distanceKm > 0 ? price / route.distanceKm : 0;
+  const totalCost = simCost + toll;
+  const margin = netRevenue !== 0 ? ((netRevenue - totalCost) / netRevenue) * 100 : 0;
+
+  return {
+    route, partner, vehicle, service, price, toll, simCost,
+    isMunicipal, taxType, taxRate, taxValue, pisCofins, netRevenue,
+    pricePerKm, totalCost, margin
+  };
+}
+
+/* ============================================================
+ * 5. PERSISTÊNCIA NO FIRESTORE
+ * ============================================================ */
+const CFG_DOC = "config/regras";
+let avulsaRotas = [];
+
+async function loadConfigFromDb() {
+  if (!db) return;
+  try {
+    const snap = await getDoc(doc(db, "config", "regras"));
+    if (snap.exists()) {
+      const remote = snap.data();
+      CONFIG = {
+        vehicles:      remote.vehicles      ?? DEFAULT_CONFIG.vehicles,
+        serviceLevels: remote.serviceLevels ?? DEFAULT_CONFIG.serviceLevels,
+        partners:      remote.partners      ?? DEFAULT_CONFIG.partners,
+        routes:        remote.routes        ?? DEFAULT_CONFIG.routes,
+        icmsTable:     remote.icmsTable     ?? DEFAULT_CONFIG.icmsTable,
+        issTable:      remote.issTable      ?? DEFAULT_CONFIG.issTable
+      };
+      setDbStatus("online", "banco: regras carregadas");
+    } else {
+      // Primeira vez que o site roda: não existe documento "config/regras" ainda.
+      // Grava o padrão (DEFAULT_CONFIG) no banco de uma vez só, e passa a
+      // usar exclusivamente o banco dali em diante — o hardcoded deixa de
+      // ser consultado depois deste momento.
+      CONFIG = structuredClone(DEFAULT_CONFIG);
+      await setDoc(doc(db, "config", "regras"), {
+        vehicles: CONFIG.vehicles,
+        serviceLevels: CONFIG.serviceLevels,
+        partners: CONFIG.partners,
+        routes: CONFIG.routes,
+        icmsTable: CONFIG.icmsTable,
+        issTable: CONFIG.issTable,
+        atualizadoEm: serverTimestamp()
+      });
+      setDbStatus("online", "banco: padrão gravado");
+    }
+  } catch (err) {
+    console.error("Erro ao ler config:", err);
+    setDbStatus("offline", "banco: sem leitura");
+  }
+}
+
+async function saveConfigPart(part, value, msgEl) {
+  if (!db) { showMsg(msgEl, "Sem conexão com o banco. Nada foi salvo.", "error"); return false; }
+  try {
+    await setDoc(doc(db, "config", "regras"), { [part]: value, atualizadoEm: serverTimestamp() }, { merge: true });
+    showMsg(msgEl, "Salvo. Todo mundo que abrir o site já pega essa regra.", "ok");
+    return true;
+  } catch (err) {
+    console.error(err);
+    showMsg(msgEl, "Não deu para salvar: " + err.message, "error");
+    return false;
+  }
+}
+
+function watchAvulsas() {
+  if (!db) { renderAvulsaList(); return; }
+  try {
+    const q = query(collection(db, "rotasAvulsas"), orderBy("criadoEm", "desc"));
+    onSnapshot(q, (snap) => {
+      avulsaRotas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAvulsaList();
+      renderDashboard();
+      renderMap();
+    }, (err) => {
+      console.error("Erro no listener de rotas avulsas:", err);
+      setDbStatus("offline", "banco: sem leitura");
+      renderAvulsaList();
+    });
+  } catch (err) {
+    console.error(err);
+    renderAvulsaList();
+  }
+}
+
+async function saveAvulsa(data) {
+  if (!db) throw new Error("Sem conexão com o banco.");
+  const coords = await geocodeAvulsaLeg(data);
+  await addDoc(collection(db, "rotasAvulsas"), { ...data, ...coords, criadoEm: serverTimestamp() });
+}
+
+async function updateAvulsa(id, data) {
+  if (!db) throw new Error("Sem conexão com o banco.");
+  const coords = await geocodeAvulsaLeg(data);
+  await updateDoc(doc(db, "rotasAvulsas", id), { ...data, ...coords, atualizadoEm: serverTimestamp() });
+}
+
+async function removeAvulsa(id) {
+  if (!db) return;
+  await deleteDoc(doc(db, "rotasAvulsas", id));
+}
+
+// Cálculos feitos na calculadora principal — mesma lógica de persistência
+// das rotas avulsas, numa coleção separada (historicoCalculos), pra saber
+// quais parceiros valem a pena escalar mais vezes.
+function watchHistoricoCalculos() {
+  if (!db) { renderHistoryTable(); renderPartnerRanking(); return; }
+  try {
+    const q = query(collection(db, "historicoCalculos"), orderBy("criadoEm", "desc"));
+    onSnapshot(q, (snap) => {
+      historico = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderHistoryTable();
+      renderPartnerRanking();
+      renderDashboard();
+    }, (err) => {
+      console.error("Erro no listener de histórico de cálculos:", err);
+      setDbStatus("offline", "banco: sem leitura");
+      renderHistoryTable();
+    });
+  } catch (err) {
+    console.error(err);
+    renderHistoryTable();
+  }
+}
+
+async function saveHistoricoToDb(q) {
+  if (!db) throw new Error("Sem conexão com o banco.");
+  await addDoc(collection(db, "historicoCalculos"), {
+    routeId: q.route.id,
+    routeCode: q.route.code,
+    partnerId: q.partner.id,
+    partnerName: q.partner.name,
+    plate: q.partner.plate || "",
+    plate2: q.partner.plate2 || "",
+    vehicleId: q.vehicle.id,
+    vehicleLabel: q.vehicle.label,
+    serviceId: q.service.id,
+    serviceLabel: q.service.label,
+    price: q.price,
+    toll: q.toll,
+    simCost: q.simCost,
+    taxType: q.taxType,
+    taxRate: q.taxRate,
+    taxValue: q.taxValue,
+    pisCofins: q.pisCofins,
+    netRevenue: q.netRevenue,
+    totalCost: q.totalCost,
+    margin: q.margin,
+    criadoEm: serverTimestamp()
+  });
+}
+
+async function removeHistoricoEntry(id) {
+  if (!db) return;
+  await deleteDoc(doc(db, "historicoCalculos", id));
+}
+
+/* ============================================================
+ * 6. AJUDANTES DE INTERFACE
+ * ============================================================ */
+function currency(v) {
+  return (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+function compactCurrency(v) {
+  if (Math.abs(v) >= 1e6) return "R$ " + (v / 1e6).toFixed(1).replace(".", ",") + " mi";
+  if (Math.abs(v) >= 1e3) return "R$ " + (v / 1e3).toFixed(0) + " mil";
+  return currency(v);
+}
+function pct(v) { return (v ?? 0).toFixed(1).replace(".", ",") + "%"; }
+function num(v) { return (v ?? 0).toLocaleString("pt-BR"); }
+function showMsg(elId, text, kind) {
+  const el = document.getElementById(elId);
+  el.textContent = text;
+  el.className = "form-msg " + (kind || "");
+  if (kind === "ok") setTimeout(() => { el.textContent = ""; el.className = "form-msg"; }, 4000);
+}
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* ============================================================
+ * 7. CALCULADORA — interface
+ * ============================================================ */
+function etaLabel(days) {
+  const n = Number(days) || 0;
+  return `${n} dia${n === 1 ? "" : "s"}`;
+}
+
+function partnerLabel(p) {
+  const vLabel = CONFIG.vehicles.find(v => v.id === p.vehicleId)?.label || p.vehicleLabel || "";
+  const plates = [p.plate, p.plate2].filter(Boolean).join("/");
+  return `${p.name}${plates ? " · " + plates : ""}${vLabel ? " · " + vLabel : ""}`;
+}
+
+function populateSelects() {
+  document.getElementById("route").innerHTML = CONFIG.routes.map(
+    r => `<option value="${r.id}">${esc(r.code)} — ${esc(r.origin)} → ${esc(r.destination)}</option>`
+  ).join("");
+  document.getElementById("vehicleType").innerHTML = CONFIG.vehicles.map(
+    v => `<option value="${v.id}">${esc(v.label)} · até ${num(v.capacityKg)} kg</option>`
+  ).join("");
+  document.getElementById("serviceLevel").innerHTML = CONFIG.serviceLevels.map(
+    s => `<option value="${s.id}">${esc(s.label)} · ${esc(etaLabel(s.etaDays))}</option>`
+  ).join("");
+
+  const partnerOpts = CONFIG.partners.length
+    ? CONFIG.partners.map(p => `<option value="${p.id}">${esc(partnerLabel(p))}</option>`).join("")
+    : `<option value="">Nenhum parceiro cadastrado</option>`;
+  document.getElementById("partner").innerHTML = partnerOpts;
+
+  const vehicleOpts = CONFIG.vehicles.map(v => `<option value="${v.id}">${esc(v.label)}</option>`).join("");
+  document.getElementById("qaPartnerVehicle").innerHTML = vehicleOpts;
+  document.getElementById("newPartnerVehicle").innerHTML = vehicleOpts;
+  document.getElementById("avVehicle").innerHTML = vehicleOpts;
+
+  const ufOpts = getUfsCobertas().map(u => `<option value="${u}">${u}</option>`).join("");
+  document.getElementById("avUfOrigem").innerHTML = ufOpts;
+  document.getElementById("avUfDestino").innerHTML = ufOpts;
+  const cidades = Object.keys(CONFIG.issTable).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  document.getElementById("avCidade").innerHTML =
+    `<option value="">Sem ISS</option>` + cidades.map(c => `<option value="${esc(c)}">${esc(c)} · ${pct(CONFIG.issTable[c])}</option>`).join("");
+
+  document.getElementById("taxUfO").innerHTML = ufOpts;
+  document.getElementById("taxUfD").innerHTML = ufOpts;
+  document.getElementById("taxCidade").innerHTML =
+    `<option value="">—</option>` + cidades.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+}
+
+function updateRoutePreview() {
+  const route = CONFIG.routes.find(r => r.id === document.getElementById("route").value);
+  const el = document.getElementById("routePreview");
+  if (!route) { el.textContent = ""; return; }
+  const municipal = cityNameOnly(route.origin) && cityNameOnly(route.destination)
+    && cityNameOnly(route.origin) === cityNameOnly(route.destination);
+  let taxTxt;
+  if (municipal) {
+    taxTxt = `ISS (municipal) <strong>${pct(lookupIss(route.cidadeIss || route.destination))}</strong>`;
+  } else {
+    try { taxTxt = `ICMS (intermunicipal) ${route.ufOrigem}→${route.ufDestino} <strong>${pct(lookupIcms(route.ufOrigem, route.ufDestino))}</strong>`; }
+    catch (e) { taxTxt = `<span style="color:var(--danger)">${esc(e.message)}</span>`; }
+  }
+  el.innerHTML = `Distância <strong>${route.distanceKm} km</strong> · ${taxTxt}`;
+}
+
+function updateVehiclePreview() {
+  const v = CONFIG.vehicles.find(x => x.id === document.getElementById("vehicleType").value);
+  const s = CONFIG.serviceLevels.find(x => x.id === document.getElementById("serviceLevel").value);
+  const el = document.getElementById("vehiclePreview");
+  if (!v) { el.textContent = ""; return; }
+  el.innerHTML = `${esc(v.label)}: até <strong>${num(v.capacityKg)} kg</strong> (informativo)${s ? ` · prazo <strong>${esc(etaLabel(s.etaDays))}</strong>` : ""}`;
+}
+
+function renderReceipt(q) {
+  const receipt = document.getElementById("receipt");
+  if (!q) {
+    receipt.innerHTML = `<div class="receipt-empty">Preencha a ficha ao lado e calcule para ver o valor do frete aqui.</div>`;
+    return;
+  }
+  const mColor = marginColor(q.margin);
+  receipt.innerHTML = `
+    <div class="receipt-head">
+      <div class="route-code">${esc(q.route.code)} · ${esc(q.partner.name)}${q.partner.plate ? " · " + esc([q.partner.plate, q.partner.plate2].filter(Boolean).join("/")) : ""}</div>
+      <p class="total-value">${currency(q.price)}</p>
+      <p class="eta">${esc(q.vehicle.label)} · ${esc(q.service.label)} · prazo ${esc(etaLabel(q.service.etaDays))} · ${q.isMunicipal ? "Municipal" : "Intermunicipal"}</p>
+    </div>
+    <div class="perforation"></div>
+    <div class="receipt-lines">
+      <div class="line"><span>Valor recebido do cliente</span><span class="margin-${mColor}">${currency(q.price)}</span></div>
+      <div class="line tax"><span>${q.taxType} · ${pct(q.taxRate)}</span><span>${currency(q.taxValue)}</span></div>
+      <div class="line tax"><span>PIS/COFINS · 9,25%</span><span>${currency(q.pisCofins)}</span></div>
+      <div class="line strong"><span>Faturamento líquido</span><span>${currency(q.netRevenue)}</span></div>
+      <div class="line"><span>R$/km (informativo)</span><span>${currency(q.pricePerKm)}</span></div>
+    </div>
+    <div class="perforation"></div>
+    <div class="receipt-lines">
+      <div class="line"><span>Valor pago ao motorista</span><span class="margin-${mColor}">${currency(q.simCost)}</span></div>
+      ${q.toll > 0 ? `<div class="line"><span>Pedágio</span><span>${currency(q.toll)}</span></div>` : ""}
+      <div class="line strong"><span>Custo total</span><span>${currency(q.totalCost)}</span></div>
+      <div class="line strong"><span>Lucro líquido</span><span class="margin-${mColor}">${currency(q.netRevenue - q.totalCost)}</span></div>
+      <div class="line strong"><span>Margem simulação</span><span class="margin-chip margin-${mColor}">${pct(q.margin)}</span></div>
+    </div>`;
+}
+
+function renderRoutesTable() {
+  const tbody = document.querySelector("#routesTable tbody");
+  tbody.innerHTML = CONFIG.routes.map(r => {
+    const municipal = cityNameOnly(r.origin) && cityNameOnly(r.destination) && cityNameOnly(r.origin) === cityNameOnly(r.destination);
+    let taxTxt;
+    if (municipal) {
+      taxTxt = pct(lookupIss(r.cidadeIss || r.destination));
+    } else {
+      try { taxTxt = pct(lookupIcms(r.ufOrigem, r.ufDestino)); }
+      catch { taxTxt = "—"; }
+    }
+    return `<tr>
+      <td class="route-code-cell">${esc(r.code)}</td>
+      <td>${esc(r.origin)}</td>
+      <td>${esc(r.destination)}</td>
+      <td class="num">${num(r.distanceKm)} km</td>
+      <td>${municipal ? "ISS" : "ICMS"}</td>
+      <td class="num">${taxTxt}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ============================================================
+ * 8. HISTÓRICO DE CÁLCULOS — persistente no Firestore
+ *    (mesma lógica das rotas avulsas: coleção "historicoCalculos",
+ *    visível pra todo mundo, sobrevive a F5 e a fechar a aba)
+ * ============================================================ */
+let historico = [];
+let expandedHistId = null;
+
+function renderHistoryDetailRow(h) {
+  const mColor = marginColor(h.margin || 0);
+  const lucro = (h.netRevenue || 0) - (h.totalCost || 0);
+  const plates = [h.plate, h.plate2].filter(Boolean).join("/");
+  return `<tr class="avulsa-detail-row"><td colspan="9"><div class="avulsa-detail-inner">
+    <div class="line"><span>Rota</span><span>${esc(h.routeCode)}</span></div>
+    <div class="line"><span>Parceiro</span><span>${esc(h.partnerName)}${plates ? " · " + esc(plates) : ""}</span></div>
+    <div class="line"><span>Veículo</span><span>${esc(h.vehicleLabel)}</span></div>
+    <div class="line"><span>Nível de serviço</span><span>${esc(h.serviceLabel)}</span></div>
+    <div class="line"><span>Valor recebido do cliente</span><span class="margin-${mColor}">${currency(h.price)}</span></div>
+    <div class="line"><span>${esc(h.taxType)} · ${pct(h.taxRate)}</span><span>${currency(h.taxValue)}</span></div>
+    <div class="line"><span>PIS/COFINS · 9,25%</span><span>${currency(h.pisCofins)}</span></div>
+    <div class="line strong"><span>Faturamento líquido</span><span>${currency(h.netRevenue)}</span></div>
+    <div class="line"><span>Valor pago ao motorista</span><span>${currency(h.simCost)}</span></div>
+    <div class="line"><span>Pedágio</span><span>${currency(h.toll)}</span></div>
+    <div class="line strong"><span>Custo total</span><span>${currency(h.totalCost)}</span></div>
+    <div class="line strong"><span>Lucro líquido</span><span class="margin-${mColor}">${currency(lucro)}</span></div>
+    <div class="line strong"><span>Margem</span><span class="margin-chip margin-${mColor}">${pct(h.margin)}</span></div>
+  </div></td></tr>`;
+}
+
+function renderHistoryTable() {
+  const wrap = document.getElementById("historyWrap");
+  if (historico.length === 0) {
+    wrap.innerHTML = `<div class="empty-state">Nenhum cálculo feito ainda. Os cálculos salvos aqui ficam disponíveis pra todo mundo que abrir o site, e alimentam o ranking de parceiros e o dashboard.</div>`;
+    return;
+  }
+  const rows = historico.map(h => {
+    const d = toDateSafe(h.criadoEm);
+    const when = d ? d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+    const mColor = marginColor(h.margin || 0);
+    const row = `<tr class="row-link" data-hist-id="${esc(h.id)}" tabindex="0">
+      <td>${when}</td>
+      <td class="route-code-cell">${esc(h.routeCode)}</td>
+      <td>${esc(h.partnerName)}</td>
+      <td>${esc([h.plate, h.plate2].filter(Boolean).join("/") || "—")}</td>
+      <td>${esc(h.vehicleLabel)}</td>
+      <td class="num">${currency(h.price)}</td>
+      <td class="num">${currency(h.totalCost)}</td>
+      <td class="num"><span class="margin-chip margin-${mColor}">${pct(h.margin)}</span></td>
+      <td><button class="btn-ghost danger" data-del-hist="${esc(h.id)}" type="button">Excluir</button></td>
+    </tr>`;
+    const detail = expandedHistId === h.id ? renderHistoryDetailRow(h) : "";
+    return row + detail;
+  }).join("");
+  wrap.innerHTML = `
+    <div class="table-scroll"><table>
+      <thead><tr><th>Quando</th><th>Rota</th><th>Parceiro</th><th>Placa</th><th>Veículo</th><th class="num">Valor recebido</th><th class="num">Custo total</th><th class="num">Margem</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  wrap.querySelectorAll("[data-del-hist]").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm("Excluir este cálculo do histórico? Remove o registro pra todo mundo.")) return;
+      try {
+        if (expandedHistId === btn.dataset.delHist) expandedHistId = null;
+        await removeHistoricoEntry(btn.dataset.delHist);
+      }
+      catch (err) { alert("Não deu para excluir: " + err.message); }
+    });
+  });
+  wrap.querySelectorAll("tr.row-link").forEach(tr => {
+    const toggle = () => {
+      const id = tr.dataset.histId;
+      expandedHistId = expandedHistId === id ? null : id;
+      renderHistoryTable();
+    };
+    tr.addEventListener("click", toggle);
+    tr.addEventListener("keydown", (e) => { if (e.key === "Enter") toggle(); });
+  });
+}
+
+/* ============================================================
+ * 9. ROTAS AVULSAS
+ * ============================================================ */
+let editingAvulsaId = null;
+let expandedAvulsaId = null;
+
+function computeAvulsa({ cidadeOrigem, ufOrigem, ufDestino, cidadeIss, valorPagarFrete, valorPagarPedagio, valorReceber }) {
+  const preco = valorReceber || 0;
+  const custoSimulado = valorPagarFrete || 0;
+  const pedagio = valorPagarPedagio || 0;
+
+  const isMunicipal = cidadeOrigem && cidadeIss
+    && cityNameOnly(cidadeOrigem) === cityNameOnly(cidadeIss);
+
+  let taxType, taxRate;
+  if (isMunicipal) {
+    taxType = "ISS";
+    taxRate = lookupIss(cidadeIss);
+  } else {
+    taxType = "ICMS";
+    taxRate = lookupIcms(ufOrigem, ufDestino);
+  }
+
+  const taxValor = preco * (taxRate / 100);
+  const pisCofins = preco * PIS_COFINS_RATE;
+  const faturamentoLiquido = preco - taxValor - pisCofins;
+  const custoTotal = custoSimulado + pedagio;
+  const margem = faturamentoLiquido !== 0 ? ((faturamentoLiquido - custoTotal) / faturamentoLiquido) * 100 : 0;
+
+  return {
+    isMunicipal, taxType, taxRate, taxValor, pisCofins, faturamentoLiquido, custoTotal, margem,
+    icmsRate: taxType === "ICMS" ? taxRate : 0,
+    issRate: taxType === "ISS" ? taxRate : 0,
+    icmsValor: taxType === "ICMS" ? taxValor : 0,
+    issValor: taxType === "ISS" ? taxValor : 0,
+    lucroSemIcms: preco - custoTotal,
+    lucroComIcms: faturamentoLiquido - custoTotal
+  };
+}
+
+function readAvulsaForm() {
+  return {
+    codigo: document.getElementById("avCode").value.trim(),
+    veiculoId: document.getElementById("avVehicle").value,
+    veiculoLabel: CONFIG.vehicles.find(v => v.id === document.getElementById("avVehicle").value)?.label || "",
+    cidadeOrigem: document.getElementById("avCidadeOrigem").value.trim(),
+    ufOrigem: document.getElementById("avUfOrigem").value,
+    ufDestino: document.getElementById("avUfDestino").value,
+    cidadeIss: document.getElementById("avCidade").value,
+    valorPagarFrete: parseFloat(document.getElementById("avPagarFrete").value) || 0,
+    valorPagarPedagio: parseFloat(document.getElementById("avPagarPedagio").value) || 0,
+    valorReceber: parseFloat(document.getElementById("avReceber").value) || 0
+  };
+}
+
+function fillAvulsaForm(r) {
+  document.getElementById("avCode").value = r.codigo || "";
+  document.getElementById("avVehicle").value = r.veiculoId || "";
+  document.getElementById("avCidadeOrigem").value = r.cidadeOrigem || "";
+  document.getElementById("avUfOrigem").value = r.ufOrigem || "";
+  document.getElementById("avUfDestino").value = r.ufDestino || "";
+  document.getElementById("avCidade").value = r.cidadeIss || "";
+  document.getElementById("avPagarFrete").value = r.valorPagarFrete || "";
+  document.getElementById("avPagarPedagio").value = r.valorPagarPedagio || "";
+  document.getElementById("avReceber").value = r.valorReceber || "";
+  updateAvulsaPreview();
+}
+
+function getAvulsaCancelBtn() {
+  let cancelBtn = document.getElementById("avCancelEdit");
+  if (!cancelBtn) {
+    cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.id = "avCancelEdit";
+    cancelBtn.className = "btn-ghost";
+    cancelBtn.style.marginTop = "0.6rem";
+    cancelBtn.style.display = "none";
+    cancelBtn.textContent = "Cancelar edição";
+    cancelBtn.addEventListener("click", cancelEditAvulsa);
+    document.querySelector('#avulsaForm button[type="submit"]').insertAdjacentElement("afterend", cancelBtn);
+  }
+  return cancelBtn;
+}
+
+function expandAvulsaFields() {
+  const wrap = document.getElementById("avulsaFieldsWrap");
+  const btn = document.getElementById("toggleAvulsaFields");
+  if (wrap && wrap.classList.contains("collapsed")) {
+    wrap.classList.remove("collapsed");
+    if (btn) btn.textContent = "▾ Minimizar campos";
+  }
+}
+
+function startEditAvulsa(id) {
+  const r = avulsaRotas.find(x => x.id === id);
+  if (!r) return;
+  editingAvulsaId = id;
+  expandAvulsaFields();
+  fillAvulsaForm(r);
+  document.querySelector('#avulsaForm button[type="submit"]').textContent = "Salvar alterações";
+  const cancelBtn = getAvulsaCancelBtn();
+  cancelBtn.style.display = "inline-block";
+  showMsg("avulsaMsg", `Editando a rota ${r.codigo}. Ajuste os campos e clique em "Salvar alterações".`, "");
+  document.getElementById("avulsaForm").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function cancelEditAvulsa() {
+  editingAvulsaId = null;
+  document.getElementById("avulsaForm").reset();
+  document.querySelector('#avulsaForm button[type="submit"]').textContent = "Salvar rota avulsa";
+  const cancelBtn = document.getElementById("avCancelEdit");
+  if (cancelBtn) cancelBtn.style.display = "none";
+  showMsg("avulsaMsg", "", "");
+  updateAvulsaPreview();
+}
+
+function updateAvulsaMunicipalHint() {
+  const data = readAvulsaForm();
+  const hint = document.getElementById("avMunicipalHint");
+  if (!hint) return;
+  if (!data.cidadeOrigem || !data.cidadeIss) { hint.textContent = ""; return; }
+  const municipal = cityNameOnly(data.cidadeOrigem) === cityNameOnly(data.cidadeIss);
+  hint.innerHTML = municipal
+    ? `<strong>Municipal</strong> — mesma cidade, aplica ISS.`
+    : `<strong>Intermunicipal</strong> — cidades diferentes, aplica ICMS.`;
+}
+
+function updateAvulsaPreview() {
+  const el = document.getElementById("avPreview");
+  updateAvulsaMunicipalHint();
+  const data = readAvulsaForm();
+  if (!data.valorReceber) {
+    el.textContent = "Preencha os valores para ver a margem calculada.";
+    return;
+  }
+  try {
+    const c = computeAvulsa(data);
+    el.innerHTML = `${c.taxType} ${pct(c.taxRate)} <strong>${currency(c.taxValor)}</strong> · PIS/COFINS <strong>${currency(c.pisCofins)}</strong> · faturamento líquido <strong>${currency(c.faturamentoLiquido)}</strong> · custo total <strong>${currency(c.custoTotal)}</strong> · lucro líquido <strong class="margin-${marginColor(c.margem)}">${currency(c.lucroComIcms)}</strong> · margem <span class="margin-chip margin-${marginColor(c.margem)}">${pct(c.margem)}</span>`;
+  } catch (err) {
+    el.innerHTML = `<span style="color:var(--danger)">${esc(err.message)}</span>`;
+  }
+}
+
+function renderAvulsaDetailRow(r) {
+  let c;
+  try { c = computeAvulsa(r); }
+  catch (err) {
+    return `<tr class="avulsa-detail-row"><td colspan="8"><div class="avulsa-detail-inner"><span style="color:var(--danger)">${esc(err.message)}</span></div></td></tr>`;
+  }
+  return `<tr class="avulsa-detail-row"><td colspan="8"><div class="avulsa-detail-inner">
+    <div class="line"><span>Código</span><span>${esc(r.codigo)}</span></div>
+    <div class="line"><span>Origem</span><span>${esc(r.cidadeOrigem || "—")} (${esc(r.ufOrigem)})</span></div>
+    <div class="line"><span>Destino</span><span>${esc(r.cidadeIss || "—")} (${esc(r.ufDestino)})</span></div>
+    <div class="line"><span>Veículo</span><span>${esc(r.veiculoLabel)}</span></div>
+    <div class="line"><span>Valor recebido do cliente</span><span class="margin-${marginColor(c.margem)}">${currency(r.valorReceber)}</span></div>
+    <div class="line"><span>${esc(c.taxType)} · ${pct(c.taxRate)}</span><span>${currency(c.taxValor)}</span></div>
+    <div class="line"><span>PIS/COFINS · 9,25%</span><span>${currency(c.pisCofins)}</span></div>
+    <div class="line strong"><span>Faturamento líquido</span><span>${currency(c.faturamentoLiquido)}</span></div>
+    <div class="line"><span>Valor pago ao motorista</span><span class="margin-${marginColor(c.margem)}">${currency(r.valorPagarFrete)}</span></div>
+    <div class="line"><span>Pedágio</span><span>${currency(r.valorPagarPedagio)}</span></div>
+    <div class="line strong"><span>Custo total</span><span>${currency(c.custoTotal)}</span></div>
+    <div class="line strong"><span>Lucro líquido</span><span class="margin-${marginColor(c.margem)}">${currency(c.lucroComIcms)}</span></div>
+    <div class="line strong"><span>Margem</span><span class="margin-chip margin-${marginColor(c.margem)}">${pct(c.margem)}</span></div>
+  </div></td></tr>`;
+}
+
+function renderAvulsaList() {
+  const wrap = document.getElementById("avulsaListWrap");
+  if (avulsaRotas.length === 0) {
+    wrap.innerHTML = `<div class="empty-state">Nenhuma rota avulsa lançada ainda. As que você salvar aparecem aqui e entram no painel.</div>`;
+    return;
+  }
+  const rows = avulsaRotas.map(r => {
+    let c;
+    try { c = computeAvulsa(r); }
+    catch { c = { taxType: "—", taxRate: 0, custoTotal: (r.valorPagarFrete||0)+(r.valorPagarPedagio||0), faturamentoLiquido: 0, margem: 0 }; }
+    const row = `<tr class="row-link" data-row-id="${esc(r.id)}" tabindex="0">
+      <td class="route-code-cell">${esc(r.codigo)}</td>
+      <td>${esc(r.ufOrigem)}→${esc(r.ufDestino)}</td>
+      <td>${esc(r.veiculoLabel)}</td>
+      <td class="num">${currency(r.valorReceber)}</td>
+      <td class="num">${currency(c.custoTotal)}</td>
+      <td>${esc(c.taxType)} · ${pct(c.taxRate)}</td>
+      <td class="num"><span class="margin-chip margin-${marginColor(c.margem)}">${pct(c.margem)}</span></td>
+      <td>
+        <button class="btn-ghost" data-edit="${esc(r.id)}" type="button">Editar</button>
+        <button class="btn-ghost danger" data-del="${esc(r.id)}" type="button">Excluir</button>
+      </td>
+    </tr>`;
+    const detail = expandedAvulsaId === r.id ? renderAvulsaDetailRow(r) : "";
+    return row + detail;
+  }).join("");
+  wrap.innerHTML = `<div class="table-scroll"><table>
+    <thead><tr><th>Código</th><th>UF</th><th>Veículo</th><th class="num">Preço</th><th class="num">Custo total</th><th>Imposto</th><th class="num">Margem</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+  wrap.querySelectorAll("[data-edit]").forEach(btn => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); startEditAvulsa(btn.dataset.edit); });
+  });
+  wrap.querySelectorAll("[data-del]").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm("Excluir esta rota avulsa?")) return;
+      try {
+        await removeAvulsa(btn.dataset.del);
+        if (editingAvulsaId === btn.dataset.del) cancelEditAvulsa();
+        if (expandedAvulsaId === btn.dataset.del) expandedAvulsaId = null;
+      }
+      catch (err) { alert("Não deu para excluir: " + err.message); }
+    });
+  });
+  wrap.querySelectorAll("tr.row-link").forEach(tr => {
+    const toggle = () => {
+      const id = tr.dataset.rowId;
+      expandedAvulsaId = expandedAvulsaId === id ? null : id;
+      renderAvulsaList();
+    };
+    tr.addEventListener("click", toggle);
+    tr.addEventListener("keydown", (e) => { if (e.key === "Enter") toggle(); });
+  });
+}
+
+function setupAvulsaForm() {
+  ["avCidadeOrigem","avUfOrigem","avUfDestino","avCidade","avPagarFrete","avPagarPedagio","avReceber"].forEach(id => {
+    document.getElementById(id).addEventListener("input", updateAvulsaPreview);
+    document.getElementById(id).addEventListener("change", updateAvulsaPreview);
+  });
+
+  document.getElementById("avCode").addEventListener("input", () => {
+    const el = document.getElementById("avCode");
+    const decoded = decodeHubRoute(el.value);
+    const hint = document.getElementById("avCodeHint");
+    if (!hint) return;
+    if (!el.value.trim()) { hint.textContent = ""; return; }
+    if (!decoded) {
+      hint.innerHTML = `<span style="color:var(--text-muted)">Sigla não reconhecida no dicionário de galpões (demo) — preencha UF e cidade manualmente.</span>`;
+      return;
+    }
+    const originUf = decoded.origin.split("-").pop();
+    const destUf = decoded.destination.split("-").pop();
+    hint.innerHTML = `Reconhecido: <strong>${esc(decoded.cities.join(" → "))}</strong>`;
+    const ufOrigemSel = document.getElementById("avUfOrigem");
+    const ufDestinoSel = document.getElementById("avUfDestino");
+    if ([...ufOrigemSel.options].some(o => o.value === originUf)) ufOrigemSel.value = originUf;
+    if ([...ufDestinoSel.options].some(o => o.value === destUf)) ufDestinoSel.value = destUf;
+    const cidadeSel = document.getElementById("avCidade");
+    if ([...cidadeSel.options].some(o => o.value === decoded.destination)) cidadeSel.value = decoded.destination;
+    document.getElementById("avCidadeOrigem").value = decoded.origin.split("-")[0];
+    updateAvulsaPreview();
+  });
+
+  document.getElementById("avulsaForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const data = readAvulsaForm();
+    if (!data.codigo) { showMsg("avulsaMsg", "Informe o código da rota.", "error"); return; }
+    let calc;
+    try { calc = computeAvulsa(data); }
+    catch (err) { showMsg("avulsaMsg", err.message, "error"); return; }
+
+    const payload = {
+      ...data,
+      taxType: calc.taxType,
+      taxRate: calc.taxRate,
+      taxValor: calc.taxValor,
+      pisCofins: calc.pisCofins,
+      custoTotal: calc.custoTotal,
+      faturamentoLiquido: calc.faturamentoLiquido,
+      margem: calc.margem
+    };
+
+    const submitBtn = document.querySelector('#avulsaForm button[type="submit"]');
+    const originalLabel = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Salvando…";
+
+    try {
+      if (editingAvulsaId) {
+        await updateAvulsa(editingAvulsaId, payload);
+        showMsg("avulsaMsg", "Rota atualizada.", "ok");
+        cancelEditAvulsa();
+      } else {
+        await saveAvulsa(payload);
+        showMsg("avulsaMsg", "Rota salva. Já aparece para todo mundo e entra no painel.", "ok");
+        document.getElementById("avulsaForm").reset();
+        updateAvulsaPreview();
+      }
+    } catch (err) {
+      showMsg("avulsaMsg", "Não deu para salvar: " + err.message, "error");
+    } finally {
+      submitBtn.disabled = false;
+      if (submitBtn.textContent === "Salvando…") submitBtn.textContent = originalLabel;
+    }
+  });
+}
+
+/* ============================================================
+ * 9B. IMPORTAÇÃO EM LOTE DE ROTAS AVULSAS
+ * ============================================================ */
+const IMPORT_TEMPLATE_HEADERS = ["codigo", "cidade_origem", "uf_origem", "uf_destino", "cidade_iss", "veiculo", "custo_simulado", "pedagio", "preco"];
+
+function downloadImportTemplate() {
+  const header = IMPORT_TEMPLATE_HEADERS.join(";");
+  const example1 = "GRU8>CNF1;Cajamar;SP;PR;;Truck;1800,00;120,00;2600,00";
+  const example2 = "CNF1>REC3>GIG1;Betim;SP;MG;Belo Horizonte-MG;VUC;950,00;0;1400,00";
+  const csv = "\uFEFF" + [header, example1, example2].join("\r\n") + "\r\n";
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "modelo-rotas-avulsas.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function normalizeKey(s) {
+  return String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+}
+
+const IMPORT_HEADER_MAP = {
+  codigo: "codigo", code: "codigo",
+  cidadeorigem: "cidadeOrigem", origem: "cidadeOrigem",
+  uforigem: "ufOrigem",
+  ufdestino: "ufDestino",
+  cidadeiss: "cidadeIss", cidade: "cidadeIss",
+  veiculo: "veiculo", tipologia: "veiculo",
+  custosimulado: "frete", simuladordecusto: "frete", frete: "frete", valorpagarfrete: "frete", pagarfrete: "frete",
+  pedagio: "pedagio", valorpagarpedagio: "frete", pagarpedagio: "pedagio",
+  preco: "valorReceber", valorreceber: "valorReceber", receber: "valorReceber", valorareceber: "valorReceber"
+};
+
+function parseNumberBR(v) {
+  if (typeof v === "number") return v;
+  if (v == null || v === "") return 0;
+  let s = String(v).trim();
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+function parseCsvText(text) {
+  const firstLine = text.split(/\r?\n/)[0] || "";
+  const delim = (firstLine.split(";").length > firstLine.split(",").length) ? ";" : ",";
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+  if (lines.length === 0) return [];
+  const headers = lines[0].split(delim).map(h => h.trim().replace(/^"|"$/g, ""));
+  return lines.slice(1).map(line => {
+    const cells = line.split(delim).map(c => c.trim().replace(/^"|"$/g, ""));
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = cells[i] ?? ""; });
+    return obj;
+  });
+}
+
+function matchVehicle(raw) {
+  const key = normalizeKey(raw);
+  return CONFIG.vehicles.find(v => normalizeKey(v.id) === key || normalizeKey(v.label) === key) || null;
+}
+
+function toCanonicalRow(rawRow) {
+  const out = {};
+  for (const [k, v] of Object.entries(rawRow)) {
+    const canon = IMPORT_HEADER_MAP[normalizeKey(k)];
+    if (canon && out[canon] === undefined) out[canon] = v;
+  }
+  return out;
+}
+
+function validateImportRow(rawRow, idx) {
+  const row = toCanonicalRow(rawRow);
+  const codigo = String(row.codigo ?? "").trim();
+  const cidadeOrigem = String(row.cidadeOrigem ?? "").trim();
+  const ufOrigem = String(row.ufOrigem ?? "").trim().toUpperCase();
+  const ufDestino = String(row.ufDestino ?? "").trim().toUpperCase();
+  const cidadeIss = String(row.cidadeIss ?? "").trim();
+  const veiculoRaw = String(row.veiculo ?? "").trim();
+  const frete = parseNumberBR(row.frete);
+  const pedagio = parseNumberBR(row.pedagio);
+  const valorReceber = parseNumberBR(row.valorReceber);
+
+  const errors = [];
+  if (!codigo) errors.push("sem código");
+  if (!getUfsCobertas().includes(ufOrigem)) errors.push(`UF origem "${ufOrigem || "—"}" inválida`);
+  if (!getUfsCobertas().includes(ufDestino)) errors.push(`UF destino "${ufDestino || "—"}" inválida`);
+  const vehicle = matchVehicle(veiculoRaw);
+  if (!vehicle) errors.push(`veículo "${veiculoRaw || "—"}" não reconhecido`);
+  if (!(valorReceber > 0)) errors.push("preço inválido");
+  if (cidadeIss && CONFIG.issTable[cidadeIss] === undefined) errors.push(`cidade "${cidadeIss}" sem ISS cadastrado (será tratada como 0%)`);
+
+  const data = {
+    codigo, cidadeOrigem, ufOrigem, ufDestino, cidadeIss,
+    veiculoId: vehicle?.id || "", veiculoLabel: vehicle?.label || veiculoRaw,
+    valorPagarFrete: frete, valorPagarPedagio: pedagio, valorReceber
+  };
+
+  let calc = null;
+  const hardErrors = errors.filter(e => !e.includes("será tratada"));
+  if (hardErrors.length === 0) {
+    try { calc = computeAvulsa(data); }
+    catch (err) { errors.push(err.message); }
+  }
+
+  return { idx, data, errors, hardErrors: errors.filter(e => !e.includes("será tratada")), calc };
+}
+
+let pendingImportRows = [];
+
+function renderImportPreview() {
+  const el = document.getElementById("importPreview");
+  if (pendingImportRows.length === 0) { el.innerHTML = ""; return; }
+
+  const valid = pendingImportRows.filter(r => r.hardErrors.length === 0);
+  const invalid = pendingImportRows.filter(r => r.hardErrors.length > 0);
+
+  const rows = pendingImportRows.map(r => {
+    const status = r.hardErrors.length > 0
+      ? `<span class="neg">${esc(r.hardErrors.join("; "))}</span>`
+      : `<span class="pos">ok${r.errors.length ? " · " + esc(r.errors.filter(e => !r.hardErrors.includes(e)).join("; ")) : ""}</span>`;
+    return `<tr>
+      <td class="num">${r.idx}</td>
+      <td class="route-code-cell">${esc(r.data.codigo)}</td>
+      <td>${esc(r.data.ufOrigem)}→${esc(r.data.ufDestino)}</td>
+      <td>${esc(r.data.veiculoLabel)}</td>
+      <td class="num">${currency(r.data.valorReceber)}</td>
+      <td class="num">${r.calc ? `<span class="margin-chip margin-${marginColor(r.calc.margem)}">${pct(r.calc.margem)}</span>` : "—"}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join("");
+
+  el.innerHTML = `
+    <p class="hint" style="margin-top:1rem">${valid.length} válidas · ${invalid.length} com erro de ${pendingImportRows.length} linhas.</p>
+    <div class="table-scroll" style="max-height:320px;overflow-y:auto">
+      <table><thead><tr><th>#</th><th>Código</th><th>UF</th><th>Veículo</th><th class="num">Preço</th><th class="num">Margem</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    </div>
+    <button class="btn" id="confirmImport" type="button" style="margin-top:1rem" ${valid.length === 0 ? "disabled" : ""}>Confirmar importação (${valid.length})</button>
+  `;
+
+  const btn = document.getElementById("confirmImport");
+  if (btn) btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "Salvando…";
+    let ok = 0, fail = 0;
+    for (const r of valid) {
+      try {
+        await saveAvulsa({
+          ...r.data,
+          taxType: r.calc.taxType, taxRate: r.calc.taxRate, taxValor: r.calc.taxValor,
+          pisCofins: r.calc.pisCofins, custoTotal: r.calc.custoTotal,
+          faturamentoLiquido: r.calc.faturamentoLiquido, margem: r.calc.margem
+        });
+        ok++;
+      } catch { fail++; }
+    }
+    showMsg("importMsg", `${ok} rotas importadas${fail ? `, ${fail} falharam ao salvar` : ""}.`, fail ? "error" : "ok");
+    pendingImportRows = [];
+    renderImportPreview();
+    document.getElementById("avulsaFile").value = "";
+  });
+}
+
+async function handleImportFile(file) {
+  showMsg("importMsg", "Lendo arquivo…", "");
+  try {
+    let rawRows = [];
+    const isCsv = /\.csv$/i.test(file.name);
+    if (isCsv) {
+      const text = await file.text();
+      rawRows = parseCsvText(text);
+    } else {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    }
+    if (rawRows.length === 0) {
+      showMsg("importMsg", "Nenhuma linha encontrada nesse arquivo.", "error");
+      return;
+    }
+    pendingImportRows = rawRows.map((r, i) => validateImportRow(r, i + 1));
+    showMsg("importMsg", "", "");
+    renderImportPreview();
+  } catch (err) {
+    console.error(err);
+    showMsg("importMsg", "Não consegui ler o arquivo: " + err.message, "error");
+  }
+}
+
+function setupImport() {
+  document.getElementById("downloadTemplate").addEventListener("click", downloadImportTemplate);
+  document.getElementById("avulsaFile").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) handleImportFile(file);
+  });
+}
+const IMPORT_ROUTE_TEMPLATE_HEADERS = [
+  "codigo", "seq", "cidade_origem", "uf_origem", "cidade_destino", "uf_destino",
+  "cidade_iss", "distancia_km", "lat_origem", "lng_origem", "lat_destino", "lng_destino"
+];
+ 
+function downloadRouteImportTemplate() {
+  const header = IMPORT_ROUTE_TEMPLATE_HEADERS.join(";");
+  const example1 = "CNF1>GRU8;1;Betim;MG;Contagem;MG;Contagem-MG;18;-19.9678;-44.1969;-19.9320;-44.0536";
+  const example2a = "GCH7>SCG9>SRL9>SCB9;1;Cajamar;SP;Sorocaba;SP;Sorocaba-SP;90;;;;";
+  const example2b = "GCH7>SCG9>SRL9>SCB9;2;Sorocaba;SP;Sertaozinho;SP;Sertaozinho-SP;20;;;;";
+  const example2c = "GCH7>SCG9>SRL9>SCB9;3;Sertaozinho;SP;Mogi Mirim;SP;Mogi Mirim-SP;12;;;;";
+  const csv = "\uFEFF" + [header, example1, example2a, example2b, example2c].join("\r\n") + "\r\n";
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "modelo-rotas-oficiais.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+ 
+const IMPORT_ROUTE_HEADER_MAP = {
+  codigo: "codigo", code: "codigo",
+  seq: "seq", trecho: "seq", ordem: "seq",
+  cidadeorigem: "cidadeOrigem", origem: "cidadeOrigem",
+  uforigem: "ufOrigem",
+  cidadedestino: "cidadeDestino", destino: "cidadeDestino",
+  ufdestino: "ufDestino",
+  cidadeiss: "cidadeIss", cidade: "cidadeIss",
+  distanciakm: "distanciaKm", distancia: "distanciaKm", km: "distanciaKm",
+  latorigem: "latOrigem", lat1: "latOrigem",
+  lngorigem: "lngOrigem", lng1: "lngOrigem", longorigem: "lngOrigem",
+  latdestino: "latDestino", lat2: "latDestino",
+  lngdestino: "lngDestino", lng2: "lngDestino", longdestino: "lngDestino"
+};
+ 
+function toCanonicalRouteRow(rawRow) {
+  const out = {};
+  for (const [k, v] of Object.entries(rawRow)) {
+    const canon = IMPORT_ROUTE_HEADER_MAP[normalizeKey(k)];
+    if (canon && out[canon] === undefined) out[canon] = v;
+  }
+  return out;
+}
+ 
+function slugifyRouteCode(code) {
+  return String(code ?? "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/→|->|>/g, "-")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+ 
+function parseCoord(v) {
+  if (v === undefined || v === null || String(v).trim() === "") return null;
+  const n = parseFloat(String(v).trim().replace(",", "."));
+  return isNaN(n) ? null : n;
+}
+ 
+function groupImportRowsByRoute(rawRows) {
+  const groups = new Map();
+  rawRows.forEach((rawRow, rowIdx) => {
+    const canon = toCanonicalRouteRow(rawRow);
+    const codigo = String(canon.codigo ?? "").trim();
+    if (!codigo) {
+      groups.set(`__semcodigo-${rowIdx}`, [{ rowIdx, canon }]);
+      return;
+    }
+    if (!groups.has(codigo)) groups.set(codigo, []);
+    groups.get(codigo).push({ rowIdx, canon });
+  });
+ 
+  for (const legs of groups.values()) {
+    legs.sort((a, b) => {
+      const sa = parseInt(a.canon.seq, 10);
+      const sb = parseInt(b.canon.seq, 10);
+      if (isNaN(sa) && isNaN(sb)) return a.rowIdx - b.rowIdx;
+      if (isNaN(sa)) return 1;
+      if (isNaN(sb)) return -1;
+      return sa - sb;
+    });
+  }
+  return groups;
+}
+ 
+function validateImportRouteLeg(canon, legIdx) {
+  const cidadeOrigem = String(canon.cidadeOrigem ?? "").trim();
+  const ufOrigem = String(canon.ufOrigem ?? "").trim().toUpperCase();
+  const cidadeDestino = String(canon.cidadeDestino ?? "").trim();
+  const ufDestino = String(canon.ufDestino ?? "").trim().toUpperCase();
+  const cidadeIssRaw = String(canon.cidadeIss ?? "").trim();
+  const cidadeIss = cidadeIssRaw || (cidadeDestino && ufDestino ? `${cidadeDestino}-${ufDestino}` : "");
+  const distanciaKm = parseNumberBR(canon.distanciaKm);
+
+  const errors = [];
+  if (!cidadeOrigem) errors.push(`trecho ${legIdx}: sem cidade de origem`);
+  if (!getUfsCobertas().includes(ufOrigem)) errors.push(`trecho ${legIdx}: UF origem "${ufOrigem || "—"}" inválida`);
+  if (!cidadeDestino) errors.push(`trecho ${legIdx}: sem cidade de destino`);
+  if (!getUfsCobertas().includes(ufDestino)) errors.push(`trecho ${legIdx}: UF destino "${ufDestino || "—"}" inválida`);
+  if (cidadeIss && CONFIG.issTable[cidadeIss] === undefined) {
+    errors.push(`trecho ${legIdx}: cidade "${cidadeIss}" sem ISS cadastrado (será tratada como 0%)`);
+  }
+
+  const hardErrors = errors.filter(e => !e.includes("será tratada"));
+
+  const leg = {
+    origin: cidadeOrigem && ufOrigem ? `${cidadeOrigem}, ${ufOrigem}` : "",
+    ufOrigem,
+    destination: cidadeDestino && ufDestino ? `${cidadeDestino}, ${ufDestino}` : "",
+    ufDestino,
+    cidadeIss,
+    distanceKm: distanciaKm,
+    lat1: parseCoord(canon.latOrigem), lng1: parseCoord(canon.lngOrigem),
+    lat2: parseCoord(canon.latDestino), lng2: parseCoord(canon.lngDestino)
+  };
+
+  return { leg, errors, hardErrors };
+}
+
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+function splitCityUf(str) {
+  const parts = String(str ?? "").split(",");
+  const uf = (parts.pop() || "").trim();
+  const cidade = parts.join(",").trim();
+  return [cidade, uf];
+}
+
+async function geocodeCityCached(cidade, uf, cache) {
+  const key = `${cidade}|${uf}`.toLowerCase();
+  if (cache.has(key)) return cache.get(key);
+  const query = `${cidade}, ${uf}, Brasil`;
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`;
+  const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+  if (!resp.ok) throw new Error(`Não consegui localizar "${cidade}, ${uf}" no mapa.`);
+  const data = await resp.json();
+  if (!data.length) throw new Error(`Cidade "${cidade}, ${uf}" não encontrada no mapa.`);
+  const coord = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  cache.set(key, coord);
+  await sleep(1100);
+  return coord;
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const toRad = d => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function drivingDistanceKm(lat1, lng1, lat2, lng2) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=false`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error("Serviço de rota indisponível.");
+  const data = await resp.json();
+  if (!data.routes || !data.routes.length) throw new Error("Rota não encontrada no mapa.");
+  return data.routes[0].distance / 1000;
+}
+
+async function computeDistanceForLeg(data, geocodeCache) {
+  let lat1 = data.lat1, lng1 = data.lng1, lat2 = data.lat2, lng2 = data.lng2;
+  let geocodedOrigin = false, geocodedDest = false;
+  if (!lat1 || !lng1) {
+    const [cidade, uf] = splitCityUf(data.origin);
+    const g = await geocodeCityCached(cidade, uf, geocodeCache);
+    lat1 = g.lat; lng1 = g.lng; geocodedOrigin = true;
+  }
+  if (!lat2 || !lng2) {
+    const [cidade, uf] = splitCityUf(data.destination);
+    const g = await geocodeCityCached(cidade, uf, geocodeCache);
+    lat2 = g.lat; lng2 = g.lng; geocodedDest = true;
+  }
+  let km, method;
+  try {
+    km = await drivingDistanceKm(lat1, lng1, lat2, lng2);
+    method = "mapa";
+  } catch {
+    km = haversineKm(lat1, lng1, lat2, lng2) * 1.25;
+    method = "estimativa";
+  }
+  return {
+    distanceKm: Math.round(km), method,
+    lat1: geocodedOrigin ? lat1 : undefined, lng1: geocodedOrigin ? lng1 : undefined,
+    lat2: geocodedDest ? lat2 : undefined, lng2: geocodedDest ? lng2 : undefined
+  };
+}
+
+async function autoFillMissingDistances(rows, onProgress) {
+  const geocodeCache = new Map();
+  const rowsNeeding = rows.filter(r => r.hardErrors.length === 0 && !(r.data.distanceKm > 0));
+  for (let i = 0; i < rowsNeeding.length; i++) {
+    const r = rowsNeeding[i];
+    onProgress?.(i + 1, rowsNeeding.length, r.data.code);
+    try {
+      const result = await computeDistanceForLeg(r.data, geocodeCache);
+      r.data.distanceKm = result.distanceKm;
+      if (result.lat1 !== undefined) { r.data.lat1 = result.lat1; r.data.lng1 = result.lng1; }
+      if (result.lat2 !== undefined) { r.data.lat2 = result.lat2; r.data.lng2 = result.lng2; }
+      r.distanceNote = result.method === "mapa" ? "calculado no mapa" : "estimativa (linha reta)";
+    } catch (err) {
+      r.distanceNote = "não encontrei automaticamente — preencha manualmente";
+      r.errors.push(`distância: ${err.message}`);
+    }
+  }
+}
+
+// Geocodifica só as coordenadas que faltam (origem e/ou destino), sem mexer
+// na distância — resolve rotas que ficariam plotadas em 0,0 (meio do oceano)
+// por não terem lat/lng na planilha importada.
+async function geocodeMissingRouteCoords(rows, onProgress) {
+  const cache = new Map();
+  const needing = rows.filter(r => r.hardErrors.length === 0 &&
+    (r.data.lat1 == null || r.data.lng1 == null || r.data.lat2 == null || r.data.lng2 == null));
+  for (let i = 0; i < needing.length; i++) {
+    const r = needing[i];
+    onProgress?.(i + 1, needing.length, r.data.code);
+    try {
+      if (r.data.lat1 == null || r.data.lng1 == null) {
+        const [cidade, uf] = splitCityUf(r.data.origin);
+        const g = await geocodeCityCached(cidade, uf, cache);
+        r.data.lat1 = g.lat; r.data.lng1 = g.lng;
+      }
+      if (r.data.lat2 == null || r.data.lng2 == null) {
+        const [cidade, uf] = splitCityUf(r.data.destination);
+        const g = await geocodeCityCached(cidade, uf, cache);
+        r.data.lat2 = g.lat; r.data.lng2 = g.lng;
+      }
+    } catch (err) {
+      console.warn(`Não consegui geocodificar a rota ${r.data.code} para o mapa:`, err.message);
+    }
+  }
+}
+
+/* ============================================================
+ * 9C. GEOCODIFICAÇÃO DE ROTA AVULSA (para aparecer no mapa)
+ * ============================================================ */
+const avulsaGeocodeCache = new Map();
+
+async function geocodeAvulsaLeg(data) {
+  const origemCidade = (data.cidadeOrigem || "").trim();
+  const origemUf = (data.ufOrigem || "").trim();
+  const destinoRaw = (data.cidadeIss || "").trim();
+  let destinoCidade = destinoRaw ? destinoRaw.split("-")[0].trim() : "";
+  const destinoUf = (data.ufDestino || "").trim();
+
+  if (!origemCidade || !origemUf || !destinoCidade || !destinoUf) {
+    return {};
+  }
+
+  try {
+    const origemCoord = await geocodeCityCached(origemCidade, origemUf, avulsaGeocodeCache);
+    const destinoCoord = await geocodeCityCached(destinoCidade, destinoUf, avulsaGeocodeCache);
+    return {
+      lat1: origemCoord.lat, lng1: origemCoord.lng,
+      lat2: destinoCoord.lat, lng2: destinoCoord.lng
+    };
+  } catch (err) {
+    console.warn("Não foi possível geocodificar a rota avulsa para o mapa:", err.message);
+    return {};
+  }
+}
+ 
+function validateImportRoute(codigoRaw, legsRaw, groupIdx, seenIds) {
+  const legResults = legsRaw.map((r, i) => validateImportRouteLeg(r.canon, i + 1));
+  const allErrors = legResults.flatMap(r => r.errors);
+  const allHardErrors = legResults.flatMap(r => r.hardErrors);
+ 
+  const origins = new Set(legResults.map(r => r.leg.origin).filter(Boolean));
+  if (origins.size > 1) {
+    allErrors.push(`trechos com origens diferentes (${[...origins].join(" / ")}) — confira se o código não deveria ser separado em rotas distintas`);
+  }
+ 
+  if (!codigoRaw || codigoRaw.startsWith("__semcodigo")) allHardErrors.push("sem código");
+  if (legResults.length === 0) allHardErrors.push("nenhum trecho válido");
+ 
+  let id = slugifyRouteCode(codigoRaw) || `rota-${groupIdx}`;
+  if (seenIds.has(id)) {
+    let n = 2;
+    while (seenIds.has(`${id}-${n}`)) n++;
+    id = `${id}-${n}`;
+  }
+  seenIds.add(id);
+ 
+  const isUpdate = CONFIG.routes.some(r => r.id === id);
+  const legs = legResults.map(r => r.leg);
+  const firstLeg = legs[0] || {};
+ 
+  const data = {
+    id,
+    code: codigoRaw.replace(/->|>/g, "→"),
+    origin: firstLeg.origin || "",
+    ufOrigem: firstLeg.ufOrigem || "",
+    lat1: firstLeg.lat1 ?? null, lng1: firstLeg.lng1 ?? null,
+    destinations: legs.map(l => ({
+      destination: l.destination,
+      ufDestino: l.ufDestino,
+      cidadeIss: l.cidadeIss,
+      distanceKm: l.distanceKm,
+      icms: l.icms,
+      lat2: l.lat2, lng2: l.lng2
+    }))
+  };
+
+  // Campos "achatados" usados pelo resto do app (calculadora, tabela, mapa):
+  // imposto calculado entre a origem do 1º trecho e o destino do ÚLTIMO trecho;
+  // distância total = soma de todos os trechos.
+  const lastLeg = legs[legs.length - 1] || {};
+  data.destination = lastLeg.destination || "";
+  data.ufDestino = lastLeg.ufDestino || "";
+  data.cidadeIss = lastLeg.cidadeIss || "";
+  data.distanceKm = legs.reduce((s, l) => s + (l.distanceKm || 0), 0);
+  data.lat2 = lastLeg.lat2 ?? null;
+  data.lng2 = lastLeg.lng2 ?? null;
+ 
+  return { idx: groupIdx, codigo: codigoRaw, data, errors: allErrors, hardErrors: allHardErrors, isUpdate };
+}
+ 
+let pendingRouteImportRows = [];
+ 
+function renderRouteImportPreview() {
+  const el = document.getElementById("routeImportPreview");
+  if (pendingRouteImportRows.length === 0) { el.innerHTML = ""; return; }
+ 
+  const valid = pendingRouteImportRows.filter(r => r.hardErrors.length === 0);
+  const invalid = pendingRouteImportRows.filter(r => r.hardErrors.length > 0);
+  const updates = valid.filter(r => r.isUpdate).length;
+  const news = valid.length - updates;
+ 
+  const rows = pendingRouteImportRows.map(r => {
+    const status = r.hardErrors.length > 0
+      ? `<span class="neg">${esc(r.hardErrors.join("; "))}</span>`
+      : `<span class="pos">${r.isUpdate ? "atualiza" : "nova"}${r.errors.length ? " · " + esc(r.errors.join("; ")) : ""}</span>`;
+    const destinosStr = r.data.destinations
+      .map(d => `${d.destination || "—"} (${d.distanceKm || "—"}km)`)
+      .join(" · ");
+    return `<tr>
+      <td class="num">${r.idx}</td>
+      <td class="route-code-cell">${esc(r.data.code)} <span class="hint">(${r.data.destinations.length} destino${r.data.destinations.length > 1 ? "s" : ""})</span></td>
+      <td>${esc(r.data.origin || "—")} → ${esc(destinosStr)}</td>
+      <td class="num">${r.data.destinations.reduce((s, d) => s + (d.distanceKm || 0), 0)}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join("");
+ 
+  el.innerHTML = `
+    <p class="hint" style="margin-top:1rem">${valid.length} válidas (${news} novas, ${updates} atualizações) · ${invalid.length} com erro de ${pendingRouteImportRows.length} rotas.</p>
+    <div class="table-scroll" style="max-height:320px;overflow-y:auto">
+      <table><thead><tr><th>#</th><th>Código</th><th>Trajeto</th><th class="num">Km total</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    </div>
+    <button class="btn" id="confirmRouteImport" type="button" style="margin-top:1rem" ${valid.length === 0 ? "disabled" : ""}>Confirmar importação (${valid.length})</button>
+  `;
+ 
+  const btn = document.getElementById("confirmRouteImport");
+  if (btn) btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    await geocodeMissingRouteCoords(valid, (i, total) => {
+      btn.textContent = `Geocodificando ${i}/${total}…`;
+    });
+    btn.textContent = "Salvando…";
+    for (const r of valid) {
+      const i = CONFIG.routes.findIndex(rt => rt.id === r.data.id);
+      if (i >= 0) CONFIG.routes[i] = r.data;
+      else CONFIG.routes.push(r.data);
+    }
+    refreshAfterConfigChange();
+    const ok = await saveConfigPart("routes", CONFIG.routes, "routeImportMsg");
+    if (ok) showMsg("routeImportMsg", `${valid.length} rotas salvas (${news} novas, ${updates} atualizadas).`, "ok");
+    pendingRouteImportRows = [];
+    renderRouteImportPreview();
+    document.getElementById("routeImportFile").value = "";
+  });
+}
+ 
+async function handleRouteImportFile(file) {
+  showMsg("routeImportMsg", "Lendo arquivo…", "");
+  try {
+    let rawRows = [];
+    const isCsv = /\.csv$/i.test(file.name);
+    if (isCsv) {
+      const text = await file.text();
+      rawRows = parseCsvText(text);
+    } else {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    }
+    if (rawRows.length === 0) {
+      showMsg("routeImportMsg", "Nenhuma linha encontrada nesse arquivo.", "error");
+      return;
+    }
+    const groups = groupImportRowsByRoute(rawRows);
+    const seenForImport = new Set();
+    let groupIdx = 0;
+    pendingRouteImportRows = [...groups.entries()].map(([codigo, legsRaw]) => {
+      groupIdx++;
+      return validateImportRoute(codigo, legsRaw, groupIdx, seenForImport);
+    });
+    showMsg("routeImportMsg", "", "");
+    renderRouteImportPreview();
+  } catch (err) {
+    console.error(err);
+    showMsg("routeImportMsg", "Não consegui ler o arquivo: " + err.message, "error");
+  }
+}
+ 
+function setupRouteImport() {
+  document.getElementById("downloadRouteTemplate").addEventListener("click", downloadRouteImportTemplate);
+  document.getElementById("routeImportFile").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) handleRouteImportFile(file);
+  });
+}
+
+/* ============================================================
+/* ============================================================
+ * 10. DASHBOARD — 100% dados reais (nada de demo)
+ *    Faturamento/custo/margem: rotas avulsas salvas no banco (avulsaRotas).
+ *    Ranking de parceiros: cálculos feitos na calculadora principal
+ *    nesta sessão (historico) — ainda não persistido no banco.
+ *    Rotas oficiais aparecem no catálogo com viagens/faturamento reais
+ *    (zerados até termos um histórico de embarques ligado a elas).
+ * ============================================================ */
+const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+function toDateSafe(ts) {
+  if (!ts) return null;
+  if (typeof ts.toDate === "function") return ts.toDate();
+  if (ts instanceof Date) return ts;
+  if (typeof ts === "string" || typeof ts === "number") {
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+function monthKey(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
+function monthLabel(key) {
+  const [y, m] = key.split("-");
+  return `${MESES[parseInt(m, 10) - 1]}/${y.slice(2)}`;
+}
+
+function combinedTotals() {
+  let faturamento = 0, custo = 0, lucro = 0, viagens = 0;
+  const porVeiculo = {};
+
+  const addVeiculo = (vehicleId, fat, custoV) => {
+    const k = vehicleId || "outros";
+    porVeiculo[k] = porVeiculo[k] || { viagens: 0, faturamento: 0, custo: 0 };
+    porVeiculo[k].viagens += 1;
+    porVeiculo[k].faturamento += fat;
+    porVeiculo[k].custo += custoV;
+  };
+
+  for (const r of avulsaRotas) {
+    let c;
+    try { c = computeAvulsa(r); } catch { continue; }
+    faturamento += r.valorReceber || 0;
+    custo += c.custoTotal;
+    lucro += c.lucroComIcms;
+    viagens += 1;
+    addVeiculo(r.veiculoId, r.valorReceber || 0, c.custoTotal);
+  }
+
+  for (const h of historico) {
+    faturamento += h.price || 0;
+    custo += h.totalCost || 0;
+    lucro += (h.netRevenue || 0) - (h.totalCost || 0);
+    viagens += 1;
+    addVeiculo(h.vehicleId, h.price || 0, h.totalCost || 0);
+  }
+
+  return { faturamento, custo, lucro, viagens, porVeiculo };
+}
+
+// Agrega rotas avulsas + cálculos da calculadora principal por mês de
+// lançamento (criadoEm), pra alimentar os dois gráficos de tendência
+// sem precisar de nenhum dado inventado.
+function monthlyAggregates() {
+  const byMonth = new Map();
+  const bump = (date, fat, custoV, faturamentoLiquido, lucroV) => {
+    if (!date) return;
+    const key = monthKey(date);
+    if (!byMonth.has(key)) byMonth.set(key, { faturamento: 0, custo: 0, faturamentoLiquido: 0, lucro: 0, viagens: 0 });
+    const agg = byMonth.get(key);
+    agg.faturamento += fat;
+    agg.custo += custoV;
+    agg.faturamentoLiquido += faturamentoLiquido;
+    agg.lucro += lucroV;
+    agg.viagens += 1;
+  };
+
+  for (const r of avulsaRotas) {
+    let c;
+    try { c = computeAvulsa(r); } catch { continue; }
+    const d = toDateSafe(r.criadoEm) || toDateSafe(r.atualizadoEm);
+    bump(d, r.valorReceber || 0, c.custoTotal, c.faturamentoLiquido, c.lucroComIcms);
+  }
+  for (const h of historico) {
+    const d = toDateSafe(h.criadoEm);
+    bump(d, h.price || 0, h.totalCost || 0, h.netRevenue || 0, (h.netRevenue || 0) - (h.totalCost || 0));
+  }
+
+  return [...byMonth.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, v]) => ({
+      key, mes: monthLabel(key),
+      faturamento: v.faturamento, custo: v.custo, viagens: v.viagens,
+      margem: v.faturamentoLiquido > 0 ? (v.lucro / v.faturamentoLiquido) * 100 : 0
+    }));
+}
+
+function emptyChartMsg(el, msg) {
+  el.innerHTML = `<div class="empty-state">${esc(msg)}</div>`;
+}
+
+function renderKpis() {
+  const t = combinedTotals();
+  const margem = t.faturamento > 0 ? (t.lucro / t.faturamento) * 100 : 0;
+  const avCount = avulsaRotas.length;
+  const calcCount = historico.length;
+
+  const kpis = [
+    { label: "Faturamento", value: currency(t.faturamento), sub: `${num(t.viagens)} viagens` },
+    { label: "Custo total", value: currency(t.custo), sub: `${pct(t.faturamento > 0 ? (t.custo / t.faturamento) * 100 : 0)} do faturamento` },
+    { label: t.lucro >= 0 ? "Lucro" : "Prejuízo", value: currency(Math.abs(t.lucro)), sub: `margem ${pct(margem)}`, tone: t.lucro >= 0 ? "pos" : "neg" },
+    { label: "Ticket médio", value: currency(t.viagens > 0 ? t.faturamento / t.viagens : 0), sub: "por viagem" },
+    { label: "Rotas avulsas", value: num(avCount), sub: avCount > 0 ? "lançadas na aba avulsas" : "nenhuma lançada" },
+    { label: "Cálculos (calculadora)", value: num(calcCount), sub: calcCount > 0 ? "feitos com parceiro" : "nenhum registrado" }
+  ];
+
+  document.getElementById("kpiRow").innerHTML = kpis.map(k => `
+    <div class="kpi">
+      <div class="kpi-label">${esc(k.label)}</div>
+      <div class="kpi-value ${k.tone || ""}">${k.value}</div>
+      <div class="kpi-sub">${esc(k.sub)}</div>
+    </div>`).join("");
+}
+
+function getMonthlyPeriodMonths() {
+  const sel = document.getElementById("monthlyPeriodFilter");
+  return sel ? parseInt(sel.value, 10) : 6;
+}
+
+function renderMonthlyChart() {
+  const el = document.getElementById("monthlyChart");
+  let data = monthlyAggregates();
+  if (data.length === 0) {
+    emptyChartMsg(el, "Nenhum lançamento ainda. Assim que você salvar uma rota avulsa ou fizer um cálculo com parceiro, o gráfico mensal aparece aqui.");
+    return;
+  }
+
+  const months = getMonthlyPeriodMonths();
+  if (months > 0 && data.length > months) data = data.slice(-months);
+
+  const W = 560, H = 260, padL = 52, padR = 12, padT = 14, padB = 30;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const maxV = Math.max(...data.map(d => Math.max(d.faturamento, d.custo)), 1) * 1.1;
+  const stepX = data.length > 1 ? plotW / (data.length - 1) : 0;
+  const colGroupW = plotW / data.length;
+  const barW = Math.min(colGroupW * 0.5, 42);
+
+  const y = v => padT + plotH - (v / maxV) * plotH;
+  const xFor = i => data.length > 1 ? padL + i * stepX : padL + plotW / 2;
+
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map(f => {
+    const val = maxV * f;
+    return `<line x1="${padL}" y1="${y(val)}" x2="${W - padR}" y2="${y(val)}" stroke="var(--line)" stroke-width="1"/>
+            <text x="${padL - 8}" y="${y(val) + 4}" fill="var(--text-muted)" font-size="10" text-anchor="end" font-family="IBM Plex Mono, monospace">${(val / 1000).toFixed(0)}k</text>`;
+  }).join("");
+
+  // Faturamento: colunas
+  const bars = data.map((d, i) => {
+    const cx = xFor(i);
+    const x1 = cx - barW / 2;
+    return `<rect x="${x1}" y="${y(d.faturamento)}" width="${barW}" height="${padT + plotH - y(d.faturamento)}" fill="var(--amber)" opacity="0.85" rx="2"><title>${d.mes} · faturamento ${currency(d.faturamento)}</title></rect>`;
+  }).join("");
+
+  const labels = data.map((d, i) =>
+    `<text x="${xFor(i)}" y="${H - 10}" fill="var(--text-muted)" font-size="10" text-anchor="middle" font-family="IBM Plex Mono, monospace">${d.mes}</text>`
+  ).join("");
+
+  // Custo: linha
+  const custoPts = data.map((d, i) => `${xFor(i)},${y(d.custo)}`).join(" ");
+  const custoDots = data.map((d, i) =>
+    `<circle cx="${xFor(i)}" cy="${y(d.custo)}" r="3" fill="var(--teal)"><title>${d.mes} · custo ${currency(d.custo)}</title></circle>`
+  ).join("");
+
+  // Lucro: linha
+  const lucroPts = data.map((d, i) => `${xFor(i)},${y(d.faturamento - d.custo)}`).join(" ");
+  const lucroDots = data.map((d, i) =>
+    `<circle cx="${xFor(i)}" cy="${y(d.faturamento - d.custo)}" r="3" fill="var(--success)"><title>${d.mes} · lucro ${currency(d.faturamento - d.custo)}</title></circle>`
+  ).join("");
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Faturamento (colunas), custo e lucro (linhas) por mês">
+      ${gridLines}${bars}${labels}
+      <polyline points="${custoPts}" fill="none" stroke="var(--teal)" stroke-width="2"/>
+      ${custoDots}
+      <polyline points="${lucroPts}" fill="none" stroke="var(--success)" stroke-width="2"/>
+      ${lucroDots}
+    </svg>`;
+}
+
+function renderVehicleTable() {
+  const t = combinedTotals();
+  const tbody = document.querySelector("#vehicleTable tbody");
+  tbody.innerHTML = CONFIG.vehicles.map(v => {
+    const extra = t.porVeiculo[v.id] || { viagens: 0, faturamento: 0, custo: 0 };
+    const lucro = extra.faturamento - extra.custo;
+    const margem = extra.faturamento > 0 ? (lucro / extra.faturamento) * 100 : 0;
+    return `<tr>
+      <td>${esc(v.label)}</td>
+      <td class="num">${num(extra.viagens)}</td>
+      <td class="num">${currency(extra.faturamento)}</td>
+      <td class="num">${currency(extra.custo)}</td>
+      <td class="num ${lucro >= 0 ? "pos" : "neg"}">${currency(lucro)}</td>
+      <td class="num ${lucro >= 0 ? "pos" : "neg"}">${pct(margem)}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderRouteResultTable() {
+  // ---- Rotas avulsas (agregadas por código) ----
+  const byCodigo = {};
+  for (const r of avulsaRotas) {
+    let c;
+    try { c = computeAvulsa(r); } catch { continue; }
+    const key = r.codigo || "—";
+    if (!byCodigo[key]) byCodigo[key] = { code: key, viagens: 0, fat: 0, lucro: 0 };
+    byCodigo[key].viagens += 1;
+    byCodigo[key].fat += r.valorReceber || 0;
+    byCodigo[key].lucro += c.lucroComIcms;
+  }
+  const avulsaRows = Object.values(byCodigo)
+    .map(x => ({ ...x, margem: x.fat > 0 ? (x.lucro / x.fat) * 100 : 0 }))
+    .sort((a, b) => b.fat - a.fat);
+
+  const tbodyAvulsa = document.querySelector("#routeResultAvulsaTable tbody");
+  if (avulsaRows.length === 0) {
+    tbodyAvulsa.innerHTML = `<tr><td colspan="5"><div class="empty-state">Nenhuma rota avulsa lançada ainda.</div></td></tr>`;
+  } else {
+    tbodyAvulsa.innerHTML = avulsaRows.map(x => `<tr>
+      <td class="route-code-cell">${esc(x.code)}</td>
+      <td class="num">${num(x.viagens)}</td>
+      <td class="num">${currency(x.fat)}</td>
+      <td class="num ${x.lucro >= 0 ? "pos" : "neg"}">${currency(x.lucro)}</td>
+      <td class="num ${x.lucro >= 0 ? "pos" : "neg"}">${pct(x.margem)}</td>
+    </tr>`).join("");
+  }
+
+  // ---- Rotas oficiais: movimento real vindo dos cálculos feitos na calculadora ----
+  const byRoute = {};
+  for (const h of historico) {
+    if (!h.routeId) continue;
+    if (!byRoute[h.routeId]) byRoute[h.routeId] = { viagens: 0, fat: 0, lucro: 0 };
+    byRoute[h.routeId].viagens += 1;
+    byRoute[h.routeId].fat += h.price || 0;
+    byRoute[h.routeId].lucro += (h.netRevenue || 0) - (h.totalCost || 0);
+  }
+  const officialRowsAll = CONFIG.routes.map(r => {
+    const agg = byRoute[r.id] || { viagens: 0, fat: 0, lucro: 0 };
+    return {
+      id: r.id, code: r.code, km: r.distanceKm,
+      viagens: agg.viagens, fat: agg.fat, lucro: agg.lucro,
+      margem: agg.fat > 0 ? (agg.lucro / agg.fat) * 100 : 0
+    };
+  }).sort((a, b) => b.fat - a.fat);
+
+  // Por padrão só mostra rotas oficiais com viagem — as "cadastradas" sem
+  // nenhum movimento ficam escondidas (já aparecem no catálogo completo
+  // na aba "Tabela de rotas"), com botão pra revelar todas se precisar.
+  const zeroCount = officialRowsAll.filter(x => x.viagens === 0).length;
+  const officialRows = showZeroOficiais ? officialRowsAll : officialRowsAll.filter(x => x.viagens > 0);
+
+  const tbodyOficial = document.querySelector("#routeResultOficialTable tbody");
+  if (officialRowsAll.length === 0) {
+    tbodyOficial.innerHTML = `<tr><td colspan="6"><div class="empty-state">Nenhuma rota oficial cadastrada ainda.</div></td></tr>`;
+  } else if (officialRows.length === 0) {
+    tbodyOficial.innerHTML = `<tr><td colspan="6"><div class="empty-state">Nenhuma rota oficial com viagem registrada ainda.</div></td></tr>`;
+  } else {
+    tbodyOficial.innerHTML = officialRows.map(x => `<tr class="row-link" data-route-id="${esc(x.id)}" tabindex="0">
+      <td class="route-code-cell">${esc(x.code)}</td>
+      <td class="num">${num(x.km)} km</td>
+      <td class="num">${num(x.viagens)}</td>
+      <td class="num">${currency(x.fat)}</td>
+      <td class="num ${x.lucro >= 0 ? "pos" : "neg"}">${currency(x.lucro)}</td>
+      <td class="num ${x.lucro >= 0 ? "pos" : "neg"}">${pct(x.margem)}</td>
+    </tr>`).join("");
+    tbodyOficial.querySelectorAll("tr.row-link").forEach(tr => {
+      const go = () => focusRoute(tr.dataset.routeId);
+      tr.addEventListener("click", go);
+      tr.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+    });
+  }
+
+  const toggleWrap = document.getElementById("oficialZeroToggleWrap");
+  if (toggleWrap) {
+    if (zeroCount === 0) {
+      toggleWrap.innerHTML = "";
+    } else {
+      toggleWrap.innerHTML = showZeroOficiais
+        ? `<button class="inline-link-btn" id="toggleZeroOficiais" type="button">Ocultar ${zeroCount} rota(s) sem viagem</button>`
+        : `<button class="inline-link-btn" id="toggleZeroOficiais" type="button">Mostrar ${zeroCount} rota(s) cadastrada(s) sem viagem ainda</button>`;
+      document.getElementById("toggleZeroOficiais")?.addEventListener("click", () => {
+        showZeroOficiais = !showZeroOficiais;
+        renderRouteResultTable();
+      });
+    }
+  }
+}
+function renderMarginChart() {
+  const el = document.getElementById("marginChart");
+  const data = monthlyAggregates();
+  if (data.length === 0) {
+    emptyChartMsg(el, "Sem lançamentos ainda a evolução da margem aparece aqui assim que houver dados de pelo menos um mês.");
+    return;
+  }
+
+  const W = 560, H = 220, padL = 40, padR = 12, padT = 16, padB = 30;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const maxV = 25;
+  const stepX = data.length > 1 ? plotW / (data.length - 1) : 0;
+  const y = v => padT + plotH - (v / maxV) * plotH;
+
+  const bandY11 = y(11), bandY20 = y(20);
+  const bands = `
+    <rect x="${padL}" y="${padT}" width="${plotW}" height="${bandY20 - padT}" fill="var(--success)" opacity="0.06"/>
+    <rect x="${padL}" y="${bandY20}" width="${plotW}" height="${bandY11 - bandY20}" fill="var(--amber)" opacity="0.08"/>
+    <rect x="${padL}" y="${bandY11}" width="${plotW}" height="${(padT + plotH) - bandY11}" fill="var(--danger)" opacity="0.06"/>
+    <line x1="${padL}" y1="${bandY11}" x2="${W - padR}" y2="${bandY11}" stroke="var(--danger)" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
+    <line x1="${padL}" y1="${bandY20}" x2="${W - padR}" y2="${bandY20}" stroke="var(--success)" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>`;
+
+  const gridLabels = [0, 5, 10, 15, 20, 25].map(v =>
+    `<text x="${padL - 8}" y="${y(v) + 4}" fill="var(--text-muted)" font-size="10" text-anchor="end" font-family="IBM Plex Mono, monospace">${v}%</text>`
+  ).join("");
+
+  const pts = data.map((d, i) => `${padL + i * stepX},${y(d.margem)}`).join(" ");
+
+  const dots = data.map((d, i) => {
+    const cx = padL + i * stepX;
+    const color = marginColor(d.margem) === "red" ? "var(--danger)" : marginColor(d.margem) === "amber" ? "var(--amber)" : "var(--success)";
+    return `<circle cx="${cx}" cy="${y(d.margem)}" r="3.2" fill="${color}"><title>${d.mes} · margem ${pct(d.margem)}</title></circle>`;
+  }).join("");
+
+  const labels = data.map((d, i) =>
+    `<text x="${padL + i * stepX}" y="${H - 10}" fill="var(--text-muted)" font-size="10" text-anchor="middle" font-family="IBM Plex Mono, monospace">${d.mes}</text>`
+  ).join("");
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Evolução da margem por mês">
+      ${bands}${gridLabels}
+      <polyline points="${pts}" fill="none" stroke="var(--text)" stroke-width="1.6" opacity="0.5"/>
+      ${dots}${labels}
+    </svg>`;
+}
+
+// Ranking por parceiro: vem dos cálculos reais feitos na calculadora principal
+// (historico), persistidos no Firestore — já que a rota avulsa não guarda
+// parceiro. É este ranking que mostra quais parceiros vale a pena escalar.
+let expandedPartnerName = null;
+
+function renderPartnerDetailRow(p) {
+  const sorted = [...p.entries].sort((a, b) => {
+    const da = toDateSafe(a.criadoEm), db = toDateSafe(b.criadoEm);
+    return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+  });
+  const rows = sorted.map(h => {
+    const d = toDateSafe(h.criadoEm);
+    const when = d ? d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+    const mColor = marginColor(h.margin || 0);
+    const lucro = (h.netRevenue || 0) - (h.totalCost || 0);
+    return `<tr>
+      <td>${when}</td>
+      <td class="route-code-cell">${esc(h.routeCode)}</td>
+      <td>${esc(h.vehicleLabel)}</td>
+      <td class="num">${currency(h.price)}</td>
+      <td class="num">${currency(h.totalCost)}</td>
+      <td class="num ${lucro >= 0 ? "pos" : "neg"}">${currency(lucro)}</td>
+      <td class="num"><span class="margin-chip margin-${mColor}">${pct(h.margin)}</span></td>
+    </tr>`;
+  }).join("");
+  return `<tr class="avulsa-detail-row"><td colspan="4"><div class="avulsa-detail-inner" style="padding:0.7rem 0.2rem">
+    <div class="table-scroll"><table>
+      <thead><tr><th>Quando</th><th>Rota</th><th>Veículo</th><th class="num">Valor recebido</th><th class="num">Custo total</th><th class="num">Lucro</th><th class="num">Margem</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div></td></tr>`;
+}
+
+function renderPartnerRanking() {
+  const tbody = document.querySelector("#partnerRankingTable tbody");
+  if (!tbody) return;
+  const byPartner = {};
+  for (const h of historico) {
+    if (!h.partnerName) continue;
+    if (!byPartner[h.partnerName]) {
+      byPartner[h.partnerName] = { name: h.partnerName, plate: [h.plate, h.plate2].filter(Boolean).join("/"), viagens: 0, margemSoma: 0, entries: [] };
+    }
+    byPartner[h.partnerName].viagens += 1;
+    byPartner[h.partnerName].margemSoma += h.margin || 0;
+    byPartner[h.partnerName].entries.push(h);
+  }
+  const rows = Object.values(byPartner)
+    .map(p => ({ ...p, margem: p.margemSoma / p.viagens }))
+    .sort((a, b) => b.margem - a.margem);
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state">Nenhum cálculo com parceiro selecionado ainda. Use a calculadora principal pra começar a povoar este ranking.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(p => {
+    const row = `<tr class="row-link" data-partner-name="${esc(p.name)}" tabindex="0">
+      <td>${esc(p.name)}</td>
+      <td>${esc(p.plate || "—")}</td>
+      <td class="num">${num(p.viagens)}</td>
+      <td class="num"><span class="margin-chip margin-${marginColor(p.margem)}">${pct(p.margem)}</span></td>
+    </tr>`;
+    const detail = expandedPartnerName === p.name ? renderPartnerDetailRow(p) : "";
+    return row + detail;
+  }).join("");
+
+  tbody.querySelectorAll("tr.row-link").forEach(tr => {
+    const toggle = () => {
+      const name = tr.dataset.partnerName;
+      expandedPartnerName = expandedPartnerName === name ? null : name;
+      renderPartnerRanking();
+    };
+    tr.addEventListener("click", toggle);
+    tr.addEventListener("keydown", (e) => { if (e.key === "Enter") toggle(); });
+  });
+}
+let mapInstance = null;
+let mapLayer = null;
+let routeLines = {};
+
+function renderMap() {
+  if (typeof L === "undefined") return;
+  if (!mapInstance) {
+    mapInstance = L.map("routeMap", { scrollWheelZoom: false }).setView([-15.0, -50.0], 4);
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+      attribution: 'Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+      maxZoom: 16
+    }).addTo(mapInstance);
+  }
+  if (mapLayer) mapLayer.remove();
+  mapLayer = L.layerGroup().addTo(mapInstance);
+  routeLines = {};
+
+  const seen = new Set();
+  for (const r of CONFIG.routes) {
+    if (r.lat1 == null || r.lat2 == null) continue;
+    const line = L.polyline([[r.lat1, r.lng1], [r.lat2, r.lng2]], {
+      color: "#f6c443", weight: 1.6, opacity: 0.55
+    }).addTo(mapLayer);
+    routeLines[r.id] = {
+      line,
+      bounds: L.latLngBounds([[r.lat1, r.lng1], [r.lat2, r.lng2]]),
+      code: r.code, origin: r.origin, destination: r.destination, distanceKm: r.distanceKm
+    };
+    line.on("click", () => focusRoute(r.id));
+
+    const pts = [
+      { lat: r.lat1, lng: r.lng1, nome: r.origin, uf: r.ufOrigem, cidadeIss: null },
+      { lat: r.lat2, lng: r.lng2, nome: r.destination, uf: r.ufDestino, cidadeIss: r.cidadeIss }
+    ];
+    for (const p of pts) {
+      const key = `${p.lat},${p.lng}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const issTxt = p.cidadeIss && CONFIG.issTable[p.cidadeIss] !== undefined
+        ? `<br>ISS ${pct(CONFIG.issTable[p.cidadeIss])} · ${esc(p.cidadeIss)}`
+        : "";
+      L.circleMarker([p.lat, p.lng], {
+        radius: 5, color: "#e0263c", weight: 2, fillColor: "#e0263c", fillOpacity: 0.85
+      }).bindPopup(`<b>${esc(p.nome)}</b>${issTxt}`).addTo(mapLayer);
+    }
+  }
+
+  // Rotas avulsas — desenhadas com estilo diferente (teal, tracejado) para diferenciar das oficiais
+  for (const r of avulsaRotas) {
+    if (r.lat1 == null || r.lat2 == null) continue;
+    const line = L.polyline([[r.lat1, r.lng1], [r.lat2, r.lng2]], {
+      color: "#e0263c", weight: 1.6, opacity: 0.6, dashArray: "5,5"
+    }).addTo(mapLayer);
+    line.bindPopup(`<b>${esc(r.codigo || "Rota avulsa")}</b><br>${esc(r.cidadeOrigem || "—")} → ${esc((r.cidadeIss || "—").split("-")[0])}<br><span style="opacity:0.7">rota avulsa</span>`);
+
+    const pts = [
+      { lat: r.lat1, lng: r.lng1, nome: r.cidadeOrigem || r.ufOrigem, cidadeIss: null },
+      { lat: r.lat2, lng: r.lng2, nome: (r.cidadeIss || "").split("-")[0] || r.ufDestino, cidadeIss: r.cidadeIss }
+    ];
+    for (const p of pts) {
+      const key = `${p.lat},${p.lng}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const issTxt = p.cidadeIss && CONFIG.issTable[p.cidadeIss] !== undefined
+        ? `<br>ISS ${pct(CONFIG.issTable[p.cidadeIss])} · ${esc(p.cidadeIss)}`
+        : "";
+      L.circleMarker([p.lat, p.lng], {
+        radius: 4.5, color: "#f6c443", weight: 2, fillColor: "#f6c443", fillOpacity: 0.85
+      }).bindPopup(`<b>${esc(p.nome)}</b>${issTxt}<br><span style="opacity:0.7">rota avulsa</span>`).addTo(mapLayer);
+    }
+  }
+
+  setTimeout(() => mapInstance.invalidateSize(), 60);
+}
+
+function focusRoute(routeId) {
+  const entry = routeLines[routeId];
+  if (!mapInstance || !entry) return;
+
+  document.getElementById("view-dash").scrollIntoView({ behavior: "smooth", block: "start" });
+
+  Object.values(routeLines).forEach(e => e.line.setStyle({ color: "#f6c443", weight: 1.6, opacity: 0.55 }));
+  entry.line.setStyle({ color: "#ffffff", weight: 3.5, opacity: 0.95 });
+  entry.line.bringToFront();
+
+  mapInstance.fitBounds(entry.bounds, { padding: [48, 48], maxZoom: 7 });
+  setTimeout(() => {
+    L.popup({ closeButton: true, className: "route-focus-popup" })
+      .setLatLng(entry.bounds.getCenter())
+      .setContent(`<b>${esc(entry.code)}</b><br>${esc(entry.origin)} → ${esc(entry.destination)}<br>${num(entry.distanceKm)} km`)
+      .openOn(mapInstance);
+  }, 350);
+}
+
+function renderDashboard() {
+  renderKpis();
+  renderMonthlyChart();
+  renderMarginChart();
+  renderPartnerRanking();
+  renderVehicleTable();
+  renderRouteResultTable();
+}
+
+/* ============================================================
+ * 11. CONFIGURAÇÕES — editores
+ * ============================================================ */
+function buildEditor(containerId, items, columns, onChange) {
+  const el = document.getElementById(containerId);
+  const head = columns.map(c => `<th${c.num ? ' class="num"' : ""}>${esc(c.label)}</th>`).join("");
+  const rows = items.map((item, i) => columns.map(c => {
+    if (c.readonly) return `<td>${esc(item[c.key])}</td>`;
+    const step = c.step || "0.01";
+    return `<td><input type="${c.type || "number"}" step="${step}" min="0" value="${esc(item[c.key])}" data-idx="${i}" data-key="${c.key}" style="width:100%;background:var(--panel-raised);border:1px solid var(--line);color:var(--text);font-family:var(--font-mono);font-size:0.82rem;padding:0.35rem 0.45rem;border-radius:3px" /></td>`;
+  }).join("")).map(tds => `<tr>${tds}</tr>`).join("");
+
+  el.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+  el.querySelectorAll("input").forEach(inp => {
+    inp.addEventListener("input", () => {
+      const idx = +inp.dataset.idx, key = inp.dataset.key;
+      const raw = inp.value;
+      items[idx][key] = inp.type === "number" ? (parseFloat(raw) || 0) : raw;
+      onChange?.();
+    });
+  });
+}
+
+function renderConfigEditors() {
+  renderVehicleEditor();
+  buildEditor("serviceEditor", CONFIG.serviceLevels, [
+    { key: "label", label: "Serviço", readonly: true },
+    { key: "etaDays", label: "Dias de viagem", num: true, step: "1" }
+  ]);
+
+  renderRouteEditor();
+  renderPartnerEditor();
+  renderIcmsEditor();
+  renderIssEditor();
+}
+
+function countVehicleUsage(vehicleId) {
+  const partnersCount = CONFIG.partners.filter(p => p.vehicleId === vehicleId).length;
+  const avulsasCount = avulsaRotas.filter(r => r.veiculoId === vehicleId).length;
+  return { partnersCount, avulsasCount, total: partnersCount + avulsasCount };
+}
+
+function makeVehicleId(label) {
+  const base = slugifyRouteCode(label) || "veiculo";
+  let id = base, n = 2;
+  while (CONFIG.vehicles.some(v => v.id === id)) { id = `${base}-${n}`; n++; }
+  return id;
+}
+
+function renderVehicleEditor() {
+  const el = document.getElementById("vehicleEditor");
+  if (!el) return;
+  const inputStyle = "width:100%;background:var(--panel-raised);border:1px solid var(--line);color:var(--text);font-family:var(--font-mono);font-size:0.82rem;padding:0.35rem 0.45rem;border-radius:3px";
+  const rows = CONFIG.vehicles.map((v, i) => `<tr>
+    <td><input type="text" value="${esc(v.label)}" data-idx="${i}" data-key="label" style="${inputStyle}" /></td>
+    <td><input type="number" min="0" step="1" value="${esc(v.capacityKg)}" data-idx="${i}" data-key="capacityKg" style="${inputStyle}" /></td>
+    <td><button class="btn-ghost danger" data-remove-vehicle="${i}" type="button">Excluir</button></td>
+  </tr>`).join("");
+  el.innerHTML = `<table>
+    <thead><tr><th>Veículo</th><th class="num">Capacidade (kg) · informativo</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+
+  el.querySelectorAll("input[data-idx]").forEach(inp => {
+    inp.addEventListener("input", () => {
+      const idx = +inp.dataset.idx, key = inp.dataset.key;
+      CONFIG.vehicles[idx][key] = inp.type === "number" ? (parseFloat(inp.value) || 0) : inp.value;
+    });
+  });
+
+  el.querySelectorAll("[data-remove-vehicle]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = +btn.dataset.removeVehicle;
+      const v = CONFIG.vehicles[idx];
+      if (!v) return;
+      const usage = countVehicleUsage(v.id);
+      let msg = `Excluir a tipologia "${v.label}"?`;
+      if (usage.total > 0) {
+        msg += ` Ela está em uso em ${usage.partnersCount} parceiro(s) e ${usage.avulsasCount} rota(s) avulsa(s) — esses registros ficarão com a tipologia "solta" (sem correspondência).`;
+      }
+      msg += ` Isso só terá efeito depois de clicar em "Salvar no banco".`;
+      if (!confirm(msg)) return;
+      CONFIG.vehicles.splice(idx, 1);
+      renderVehicleEditor();
+    });
+  });
+}
+
+function renderRouteEditor() {
+  const el = document.getElementById("routeEditor");
+  if (!el) return;
+  if (CONFIG.routes.length === 0) {
+    el.innerHTML = `<div class="empty-state">Nenhuma rota oficial cadastrada ainda. Cadastre via importação em lote ou peça para adicionar aqui.</div>`;
+    return;
+  }
+  const inputStyle = "width:100%;background:var(--panel-raised);border:1px solid var(--line);color:var(--text);font-family:var(--font-mono);font-size:0.82rem;padding:0.35rem 0.45rem;border-radius:3px";
+  const ufOpts = getUfsCobertas().map(u => `<option value="${u}">${u}</option>`).join("");
+  const cidades = Object.keys(CONFIG.issTable).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const cidadeOpts = `<option value="">Sem ISS</option>` + cidades.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+
+  const rows = CONFIG.routes.map((r, i) => `<tr>
+    <td><input type="text" value="${esc(r.code)}" data-idx="${i}" data-key="code" style="${inputStyle}" /></td>
+    <td><input type="text" value="${esc(r.origin)}" data-idx="${i}" data-key="origin" style="${inputStyle}" /></td>
+    <td><select data-idx="${i}" data-key="ufOrigem" style="${inputStyle}">${ufOpts}</select></td>
+    <td><input type="text" value="${esc(r.destination)}" data-idx="${i}" data-key="destination" style="${inputStyle}" /></td>
+    <td><select data-idx="${i}" data-key="ufDestino" style="${inputStyle}">${ufOpts}</select></td>
+    <td><select data-idx="${i}" data-key="cidadeIss" style="${inputStyle}">${cidadeOpts}</select></td>
+    <td><input type="number" min="0" step="1" value="${esc(r.distanceKm)}" data-idx="${i}" data-key="distanceKm" style="${inputStyle}" /></td>
+    <td><button class="btn-ghost danger" data-remove-route="${i}" type="button">Excluir</button></td>
+  </tr>`).join("");
+
+  el.innerHTML = `<table>
+    <thead><tr><th>Código</th><th>Origem</th><th>UF orig.</th><th>Destino</th><th>UF dest.</th><th>Cidade ISS</th><th class="num">Km</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+
+  CONFIG.routes.forEach((r, i) => {
+    const selO = el.querySelector(`select[data-idx="${i}"][data-key="ufOrigem"]`);
+    if (selO) selO.value = r.ufOrigem || "";
+    const selD = el.querySelector(`select[data-idx="${i}"][data-key="ufDestino"]`);
+    if (selD) selD.value = r.ufDestino || "";
+    const selC = el.querySelector(`select[data-idx="${i}"][data-key="cidadeIss"]`);
+    if (selC) selC.value = r.cidadeIss || "";
+  });
+
+  el.querySelectorAll("input[data-idx], select[data-idx]").forEach(inp => {
+    inp.addEventListener("input", () => {
+      const idx = +inp.dataset.idx, key = inp.dataset.key;
+      CONFIG.routes[idx][key] = inp.type === "number" ? (parseFloat(inp.value) || 0) : inp.value;
+    });
+    inp.addEventListener("change", () => {
+      const idx = +inp.dataset.idx, key = inp.dataset.key;
+      CONFIG.routes[idx][key] = inp.type === "number" ? (parseFloat(inp.value) || 0) : inp.value;
+    });
+  });
+
+  el.querySelectorAll("[data-remove-route]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const r = CONFIG.routes[+btn.dataset.removeRoute];
+      if (!confirm(`Excluir a rota "${r?.code || ""}"? Isso só terá efeito depois de clicar em "Salvar no banco".`)) return;
+      CONFIG.routes.splice(+btn.dataset.removeRoute, 1);
+      renderRouteEditor();
+    });
+  });
+}
+
+function renderPartnerEditor() {
+  const el = document.getElementById("partnerEditor");
+  if (!el) return;
+  if (CONFIG.partners.length === 0) {
+    el.innerHTML = `<div class="empty-state">Nenhum parceiro cadastrado ainda. Adicione um abaixo.</div>`;
+    return;
+  }
+  const inputStyle = "width:100%;background:var(--panel-raised);border:1px solid var(--line);color:var(--text);font-family:var(--font-mono);font-size:0.82rem;padding:0.35rem 0.45rem;border-radius:3px";
+  const rows = CONFIG.partners.map((p, i) => `<tr>
+    <td><input type="text" value="${esc(p.name)}" data-idx="${i}" data-key="name" style="${inputStyle}" /></td>
+    <td><input type="text" value="${esc(p.plate || "")}" data-idx="${i}" data-key="plate" style="${inputStyle};text-transform:uppercase" /></td>
+    <td><input type="text" value="${esc(p.plate2 || "")}" data-idx="${i}" data-key="plate2" style="${inputStyle};text-transform:uppercase" /></td>
+    <td>
+      <select data-idx="${i}" data-key="vehicleId" style="${inputStyle}">
+        ${CONFIG.vehicles.map(v => `<option value="${v.id}" ${v.id === p.vehicleId ? "selected" : ""}>${esc(v.label)}</option>`).join("")}
+      </select>
+    </td>
+    <td><button class="btn-ghost danger" data-remove-partner="${i}" type="button">Remover</button></td>
+  </tr>`).join("");
+  el.innerHTML = `<table>
+    <thead><tr><th>Nome</th><th>Placa</th><th>Placa 2</th><th>Tipologia</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+  el.querySelectorAll("input[data-idx], select[data-idx]").forEach(inp => {
+    inp.addEventListener("input", () => {
+      const idx = +inp.dataset.idx, key = inp.dataset.key;
+      const val = (key === "plate" || key === "plate2") ? inp.value.toUpperCase() : inp.value;
+      CONFIG.partners[idx][key] = val;
+      if ((key === "plate" || key === "plate2") && inp.value !== val) inp.value = val;
+    });
+  });
+  el.querySelectorAll("[data-remove-partner]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const p = CONFIG.partners[+btn.dataset.removePartner];
+      if (!confirm(`Remover o parceiro "${p?.name || ""}"? Isso só terá efeito depois de clicar em "Salvar no banco".`)) return;
+      CONFIG.partners.splice(+btn.dataset.removePartner, 1);
+      renderPartnerEditor();
+    });
+  });
+}
+
+function renderIcmsEditor() {
+  const el = document.getElementById("icmsEditor");
+  if (!el) return;
+  const inputStyle = "width:100%;background:var(--panel-raised);border:1px solid var(--line);color:var(--text);font-family:var(--font-mono);font-size:0.82rem;padding:0.35rem 0.45rem;border-radius:3px";
+  const entries = Object.entries(CONFIG.icmsTable).sort((a, b) => a[0].localeCompare(b[0]));
+  if (entries.length === 0) {
+    el.innerHTML = `<div class="empty-state">Nenhuma alíquota de ICMS cadastrada.</div>`;
+    return;
+  }
+  const rows = entries.map(([key, rate]) => {
+    const [o, d] = key.split("-");
+    return `<tr>
+      <td>${esc(o)}</td><td>${esc(d)}</td>
+      <td><input type="number" min="0" step="0.01" value="${rate}" data-key="${esc(key)}" style="${inputStyle}" /></td>
+      <td><button class="btn-ghost danger" data-remove-icms="${esc(key)}" type="button">Excluir</button></td>
+    </tr>`;
+  }).join("");
+  el.innerHTML = `<table><thead><tr><th>Origem</th><th>Destino</th><th class="num">Alíquota (%)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  el.querySelectorAll("input[data-key]").forEach(inp => {
+    inp.addEventListener("input", () => {
+      CONFIG.icmsTable[inp.dataset.key] = parseFloat(inp.value) || 0;
+    });
+  });
+  el.querySelectorAll("[data-remove-icms]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!confirm(`Excluir a alíquota ${btn.dataset.removeIcms}? Rotas nesse par de UF ficam sem ICMS cadastrado até você adicionar de novo. Isso só terá efeito depois de "Salvar no banco".`)) return;
+      delete CONFIG.icmsTable[btn.dataset.removeIcms];
+      renderIcmsEditor();
+    });
+  });
+}
+
+function renderIssEditor() {
+  const el = document.getElementById("issEditor");
+  if (!el) return;
+  const inputStyle = "width:100%;background:var(--panel-raised);border:1px solid var(--line);color:var(--text);font-family:var(--font-mono);font-size:0.82rem;padding:0.35rem 0.45rem;border-radius:3px";
+  const entries = Object.entries(CONFIG.issTable).sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+  if (entries.length === 0) {
+    el.innerHTML = `<div class="empty-state">Nenhuma alíquota de ISS cadastrada.</div>`;
+    return;
+  }
+  const rows = entries.map(([city, rate]) => `<tr>
+    <td>${esc(city)}</td>
+    <td><input type="number" min="0" step="0.01" value="${rate}" data-key="${esc(city)}" style="${inputStyle}" /></td>
+    <td><button class="btn-ghost danger" data-remove-iss="${esc(city)}" type="button">Excluir</button></td>
+  </tr>`).join("");
+  el.innerHTML = `<table><thead><tr><th>Cidade</th><th class="num">Alíquota (%)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  el.querySelectorAll("input[data-key]").forEach(inp => {
+    inp.addEventListener("input", () => {
+      CONFIG.issTable[inp.dataset.key] = parseFloat(inp.value) || 0;
+    });
+  });
+  el.querySelectorAll("[data-remove-iss]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!confirm(`Excluir o ISS de "${btn.dataset.removeIss}"? Isso só terá efeito depois de "Salvar no banco".`)) return;
+      delete CONFIG.issTable[btn.dataset.removeIss];
+      renderIssEditor();
+    });
+  });
+}
+
+function renderTaxTables() {
+  const icmsEntries = Object.entries(CONFIG.icmsTable);
+  const issEntries = Object.entries(CONFIG.issTable).sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+  document.getElementById("taxCount").textContent =
+    `${icmsEntries.length} pares de UF e ${issEntries.length} cidades`;
+
+  document.querySelector("#icmsTable tbody").innerHTML = icmsEntries
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([k, v]) => {
+      const [o, d] = k.split("-");
+      return `<tr><td>${o}</td><td>${d}</td><td class="num">${pct(v)}</td></tr>`;
+    }).join("");
+
+  document.querySelector("#issTable tbody").innerHTML = issEntries
+    .map(([c, v]) => `<tr><td>${esc(c)}</td><td class="num">${pct(v)}</td></tr>`).join("");
+}
+
+function updateTaxLookup() {
+  const o = document.getElementById("taxUfO").value;
+  const d = document.getElementById("taxUfD").value;
+  const c = document.getElementById("taxCidade").value;
+  const icmsOut = document.getElementById("taxIcmsOut");
+  try {
+    icmsOut.textContent = pct(lookupIcms(o, d));
+    icmsOut.style.color = "";
+  } catch (err) {
+    icmsOut.textContent = err.message;
+    icmsOut.style.color = "var(--danger)";
+  }
+  document.getElementById("taxIssOut").textContent = c ? pct(lookupIss(c)) : "—";
+}
+
+function makePartnerId(name) {
+  const base = slugifyRouteCode(name) || "parceiro";
+  let id = base, n = 2;
+  while (CONFIG.partners.some(p => p.id === id)) { id = `${base}-${n}`; n++; }
+  return id;
+}
+
+function setupConfigSaves() {
+  document.getElementById("saveVehicles").addEventListener("click", async () => {
+    refreshAfterConfigChange();
+    await saveConfigPart("vehicles", CONFIG.vehicles, "vehiclesMsg");
+  });
+  document.getElementById("addVehicleBtn").addEventListener("click", () => {
+    const label = document.getElementById("newVehicleLabel").value.trim();
+    const capacityKg = parseFloat(document.getElementById("newVehicleCapacity").value) || 0;
+    if (!label) { showMsg("vehiclesMsg", "Informe o nome da tipologia.", "error"); return; }
+    CONFIG.vehicles.push({ id: makeVehicleId(label), label, capacityKg });
+    document.getElementById("newVehicleLabel").value = "";
+    document.getElementById("newVehicleCapacity").value = "";
+    renderVehicleEditor();
+    showMsg("vehiclesMsg", "Tipologia adicionada à lista. Clique em Salvar no banco para confirmar.", "");
+  });
+  document.getElementById("saveService").addEventListener("click", async () => {
+    refreshAfterConfigChange();
+    await saveConfigPart("serviceLevels", CONFIG.serviceLevels, "serviceMsg");
+  });
+  document.getElementById("saveRoutes").addEventListener("click", async () => {
+    refreshAfterConfigChange();
+    await saveConfigPart("routes", CONFIG.routes, "routesMsg");
+  });
+  document.getElementById("fixRouteCoords").addEventListener("click", async () => {
+    const needing = CONFIG.routes.filter(r => !r.lat1 || !r.lng1 || !r.lat2 || !r.lng2);
+    if (needing.length === 0) {
+      showMsg("routesMsg", "Nenhuma rota com coordenada ausente ou zerada. Nada a corrigir.", "ok");
+      return;
+    }
+    const btn = document.getElementById("fixRouteCoords");
+    btn.disabled = true;
+    const cache = new Map();
+    let fixed = 0, failed = 0;
+    for (let i = 0; i < needing.length; i++) {
+      const r = needing[i];
+      btn.textContent = `📍 Corrigindo ${i + 1}/${needing.length}…`;
+      try {
+        if (!r.lat1 || !r.lng1) {
+          const [cidade, uf] = splitCityUf(r.origin);
+          const g = await geocodeCityCached(cidade, uf, cache);
+          r.lat1 = g.lat; r.lng1 = g.lng;
+        }
+        if (!r.lat2 || !r.lng2) {
+          const [cidade, uf] = splitCityUf(r.destination);
+          const g = await geocodeCityCached(cidade, uf, cache);
+          r.lat2 = g.lat; r.lng2 = g.lng;
+        }
+        fixed++;
+      } catch (err) {
+        failed++;
+        console.warn(`Não consegui corrigir a rota ${r.code}:`, err.message);
+      }
+    }
+    btn.disabled = false;
+    btn.textContent = "📍 Corrigir coordenadas ausentes/zeradas";
+    refreshAfterConfigChange();
+    const ok = await saveConfigPart("routes", CONFIG.routes, "routesMsg");
+    if (ok) showMsg("routesMsg", `${fixed} rota(s) corrigida(s)${failed ? `, ${failed} não encontrada(s) no mapa` : ""}.`, failed ? "error" : "ok");
+  });
+  document.getElementById("addPartnerBtn").addEventListener("click", () => {
+    const name = document.getElementById("newPartnerName").value.trim();
+    const plate = document.getElementById("newPartnerPlate").value.trim().toUpperCase();
+    const plate2 = document.getElementById("newPartnerPlate2").value.trim().toUpperCase();
+    const vehicleId = document.getElementById("newPartnerVehicle").value;
+    if (!name) { showMsg("partnersMsg", "Informe o nome do parceiro.", "error"); return; }
+    CONFIG.partners.push({ id: makePartnerId(name), name, plate, plate2, vehicleId });
+    document.getElementById("newPartnerName").value = "";
+    document.getElementById("newPartnerPlate").value = "";
+    document.getElementById("newPartnerPlate2").value = "";
+    renderPartnerEditor();
+    showMsg("partnersMsg", "Parceiro adicionado à lista. Clique em Salvar no banco para confirmar.", "");
+  });
+  document.getElementById("savePartners").addEventListener("click", async () => {
+    refreshAfterConfigChange();
+    await saveConfigPart("partners", CONFIG.partners, "partnersMsg");
+  });
+
+  document.getElementById("addIcmsBtn").addEventListener("click", () => {
+    const o = document.getElementById("newIcmsOrigem").value.trim().toUpperCase();
+    const d = document.getElementById("newIcmsDestino").value.trim().toUpperCase();
+    const rate = parseFloat(document.getElementById("newIcmsRate").value);
+    if (o.length !== 2 || d.length !== 2) { showMsg("icmsEditMsg", "Informe UFs válidas (2 letras cada).", "error"); return; }
+    if (isNaN(rate) || rate < 0) { showMsg("icmsEditMsg", "Informe uma alíquota válida.", "error"); return; }
+    CONFIG.icmsTable[`${o}-${d}`] = rate;
+    document.getElementById("newIcmsOrigem").value = "";
+    document.getElementById("newIcmsDestino").value = "";
+    document.getElementById("newIcmsRate").value = "";
+    renderIcmsEditor();
+    showMsg("icmsEditMsg", "Par adicionado/atualizado na lista. Clique em Salvar no banco para confirmar.", "");
+  });
+  document.getElementById("saveIcms").addEventListener("click", async () => {
+    refreshAfterConfigChange();
+    await saveConfigPart("icmsTable", CONFIG.icmsTable, "icmsEditMsg");
+  });
+
+  document.getElementById("addIssBtn").addEventListener("click", () => {
+    const city = document.getElementById("newIssCidade").value.trim();
+    const rate = parseFloat(document.getElementById("newIssRate").value);
+    if (!city) { showMsg("issEditMsg", "Informe a cidade, no formato Cidade-UF.", "error"); return; }
+    if (isNaN(rate) || rate < 0) { showMsg("issEditMsg", "Informe uma alíquota válida.", "error"); return; }
+    CONFIG.issTable[city] = rate;
+    document.getElementById("newIssCidade").value = "";
+    document.getElementById("newIssRate").value = "";
+    renderIssEditor();
+    showMsg("issEditMsg", "Cidade adicionada/atualizada na lista. Clique em Salvar no banco para confirmar.", "");
+  });
+  document.getElementById("saveIss").addEventListener("click", async () => {
+    refreshAfterConfigChange();
+    await saveConfigPart("issTable", CONFIG.issTable, "issEditMsg");
+  });
+
+  ["taxUfO", "taxUfD", "taxCidade"].forEach(id =>
+    document.getElementById(id).addEventListener("change", updateTaxLookup));
+}
+
+function refreshAfterConfigChange() {
+  const prevRoute = document.getElementById("route").value;
+  const prevVehicle = document.getElementById("vehicleType").value;
+  const prevPartner = document.getElementById("partner").value;
+  populateSelects();
+  if (CONFIG.routes.some(r => r.id === prevRoute)) document.getElementById("route").value = prevRoute;
+  if (CONFIG.vehicles.some(v => v.id === prevVehicle)) document.getElementById("vehicleType").value = prevVehicle;
+  if (CONFIG.partners.some(p => p.id === prevPartner)) document.getElementById("partner").value = prevPartner;
+  updateRoutePreview();
+  updateVehiclePreview();
+  renderRoutesTable();
+  renderRouteEditor();
+  renderTaxTables();
+  updateTaxLookup();
+  renderIcmsEditor();
+  renderIssEditor();
+  renderDashboard();
+  renderMap();
+}
+
+/* ============================================================
+ * 12. NAVEGAÇÃO E INICIALIZAÇÃO
+ * ============================================================ */
+function setupNav() {
+  document.querySelectorAll(".nav-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(btn.dataset.view).classList.add("active");
+      if (btn.dataset.view === "view-dash") {
+        renderDashboard();
+        renderMap();
+      }
+    });
+  });
+  document.getElementById("monthlyPeriodFilter")?.addEventListener("change", renderMonthlyChart);
+}
+
+function setupTabs() {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const group = btn.closest(".tabs");
+      const panelIds = [...group.querySelectorAll(".tab-btn")].map(b => b.dataset.tab);
+      group.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      panelIds.forEach(id => document.getElementById(id)?.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(btn.dataset.tab)?.classList.add("active");
+    });
+  });
+}
+
+function setupCollapseToggle(btnId, wrapId, labelShow, labelHide) {
+  const btn = document.getElementById(btnId);
+  const wrap = document.getElementById(wrapId);
+  if (!btn || !wrap) return;
+  btn.addEventListener("click", () => {
+    const collapsed = wrap.classList.toggle("collapsed");
+    btn.textContent = collapsed ? labelShow : labelHide;
+  });
+}
+
+function setupCollapsibles() {
+  setupCollapseToggle("toggleAvulsaFields", "avulsaFieldsWrap", "▸ Mostrar campos", "▾ Minimizar campos");
+  setupCollapseToggle("toggleRoutesTable", "routesTableWrap", "▸ Mostrar tabela", "▾ Minimizar tabela");
+  setupCollapseToggle("toggleRouteResult", "routeResultWrap", "▸ Mostrar tabela", "▾ Minimizar tabela");
+}
+
+function setupForm() {
+  const form = document.getElementById("quoteForm");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    document.getElementById("formError").textContent = "";
+    let quote;
+    try {
+      quote = calculateQuote({
+        routeId: document.getElementById("route").value,
+        partnerId: document.getElementById("partner").value,
+        vehicleId: document.getElementById("vehicleType").value,
+        serviceLevelId: document.getElementById("serviceLevel").value,
+        price: parseFloat(document.getElementById("priceValue").value) || 0,
+        tollValue: parseFloat(document.getElementById("tollValue").value) || 0,
+        simulatedCost: parseFloat(document.getElementById("simCostValue").value) || 0
+      });
+    } catch (err) {
+      document.getElementById("formError").textContent = err.message;
+      return;
+    }
+    renderReceipt(quote);
+    try {
+      await saveHistoricoToDb(quote);
+    } catch (err) {
+      document.getElementById("formError").textContent = "Calculado, mas não salvo no histórico: " + err.message;
+    }
+  });
+  document.getElementById("route").addEventListener("change", updateRoutePreview);
+  document.getElementById("vehicleType").addEventListener("change", updateVehiclePreview);
+  document.getElementById("serviceLevel").addEventListener("change", updateVehiclePreview);
+
+  document.getElementById("togglePartnerQuickAdd").addEventListener("click", () => {
+    const box = document.getElementById("partnerQuickAdd");
+    box.style.display = box.style.display === "none" ? "block" : "none";
+  });
+
+  document.getElementById("qaPartnerSave").addEventListener("click", async () => {
+    const name = document.getElementById("qaPartnerName").value.trim();
+    const plate = document.getElementById("qaPartnerPlate").value.trim().toUpperCase();
+    const plate2 = document.getElementById("qaPartnerPlate2").value.trim().toUpperCase();
+    const vehicleId = document.getElementById("qaPartnerVehicle").value;
+    if (!name) { showMsg("qaPartnerMsg", "Informe o nome do parceiro.", "error"); return; }
+    const partner = { id: makePartnerId(name), name, plate, plate2, vehicleId };
+    CONFIG.partners.push(partner);
+    document.getElementById("partner").innerHTML = CONFIG.partners.map(
+      p => `<option value="${p.id}">${esc(partnerLabel(p))}</option>`
+    ).join("");
+    document.getElementById("partner").value = partner.id;
+    document.getElementById("qaPartnerName").value = "";
+    document.getElementById("qaPartnerPlate").value = "";
+    document.getElementById("qaPartnerPlate2").value = "";
+    document.getElementById("qaPartnerVehicle").selectedIndex = 0;
+    document.getElementById("partnerQuickAdd").style.display = "none";
+    const ok = await saveConfigPart("partners", CONFIG.partners, "qaPartnerMsg");
+    if (ok) showMsg("qaPartnerMsg", "Parceiro cadastrado e selecionado.", "ok");
+  });
+}
+
+
+const FISCAL_EDIT_PASSWORD = "Shippify";
+
+function setupFiscalEditGate() {
+  const unlock = () => {
+    const pass = document.getElementById("fiscalEditPassword").value;
+    if (pass === FISCAL_EDIT_PASSWORD) {
+      document.getElementById("fiscalEditGate").style.display = "none";
+      document.getElementById("fiscalEditContent").style.display = "";
+    } else {
+      showMsg("fiscalEditMsg", "Senha incorreta.", "error");
+    }
+  };
+  document.getElementById("fiscalEditUnlock").addEventListener("click", unlock);
+  document.getElementById("fiscalEditPassword").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") unlock();
+  });
+}
+
+let showZeroOficiais = false;
+
+async function init() {
+  setupNav();
+  setupTabs();
+  setupCollapsibles();
+  setupForm();
+  setupAvulsaForm();
+  setupImport();
+  setupRouteImport();
+  setupConfigSaves();
+  setupFiscalEditGate();
+
+  await loadConfigFromDb();
+
+  populateSelects();
+  updateRoutePreview();
+  updateVehiclePreview();
+  updateAvulsaPreview();
+  renderReceipt(null);
+  renderRoutesTable();
+  renderHistoryTable();
+  renderConfigEditors();
+  renderTaxTables();
+  updateTaxLookup();
+  renderDashboard();
+  watchAvulsas();
+  watchHistoricoCalculos();
+}
+
+init();
+  </script>
+</body>
+</html>
