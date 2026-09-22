@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Calculadora de precificação</title>
+<link rel="icon" type="image/png" href="logo.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
@@ -431,10 +432,10 @@ footer { text-align: center; color: var(--text-muted); font-size: 0.8rem; paddin
                   <div class="line"><span>Mesma cidade</span><span>Municipal → usa ISS</span></div>
                   <div class="line"><span>Cidade diferente</span><span>Intermunicipal → usa ICMS</span></div>
                   <div class="line"><span>PIS/COFINS</span><span>9,25% do preço</span></div>
-                  <div class="line"><span>Faturamento líquido</span><span>preço − imposto − PIS/COFINS</span></div>
+                  <div class="line"><span>Faturamento líquido</span><span>preço - imposto - PIS/COFINS</span></div>
                   <div class="line"><span>Custo total</span><span>valor pago ao motorista + pedágio</span></div>
-                  <div class="line"><span>Lucro líquido</span><span>faturamento líquido − custo total</span></div>
-                  <div class="line"><span>Margem</span><span>(líquido − custo) ÷ líquido</span></div>
+                  <div class="line"><span>Lucro líquido</span><span>faturamento líquido - custo total</span></div>
+                  <div class="line"><span>Margem</span><span>(líquido - custo) ÷ líquido</span></div>
                 </div>
                 <p class="hint" style="margin-top:1rem">ICMS/ISS e PIS/COFINS incidem sobre o preço. As alíquotas vêm da tabela fiscal, editável em Configurações. A margem já é calculada em cima do lucro líquido (depois de tirar pedágio e custo simulado)  o "faturamento líquido" é só a etapa intermediária depois dos impostos.</p>
               </aside>
@@ -568,8 +569,8 @@ footer { text-align: center; color: var(--text-muted); font-size: 0.8rem; paddin
 
       <div class="tab-panel active" id="cfg-partners">
         <div class="panel">
-          <h2>Cadastro de parceiros / carriers</h2>
-          <p class="hint">Nome, placa e tipologia. Um parceiro pode rodar várias rotas diferentes — cadastre uma vez e reutilize na calculadora.</p>
+          <h2>Cadastro de parceiros/carriers</h2>
+          <p class="hint">Nome, placa e tipologia. Um parceiro pode rodar várias rotas diferentes cadastre uma vez e reutilize na calculadora.</p>
           <div class="table-scroll"><div id="partnerEditor"></div></div>
           <div class="field-row-3" style="margin-top:1rem">
             <div class="field" style="margin-bottom:0">
@@ -601,7 +602,7 @@ footer { text-align: center; color: var(--text-muted); font-size: 0.8rem; paddin
       <div class="tab-panel" id="cfg-vehicles">
         <div class="panel">
           <h2>Tipologia de veículo</h2>
-          <p class="hint">Nome e capacidade editáveis. Capacidade é só rótulo informativo — não entra em nenhuma conta.</p>
+          <p class="hint">Nome e capacidade editáveis. Capacidade é só rótulo INFORMATIVO não entra em nenhuma conta.</p>
           <div class="table-scroll"><div id="vehicleEditor"></div></div>
           <div class="field-row" style="margin-top:1rem">
             <div class="field" style="margin-bottom:0">
@@ -623,7 +624,7 @@ footer { text-align: center; color: var(--text-muted); font-size: 0.8rem; paddin
       <div class="tab-panel" id="cfg-cargo">
         <div class="panel" style="max-width:640px">
           <h2>Níveis de serviço</h2>
-          <p class="hint">Só o número de dias de viagem — informativo, não afeta o preço.</p>
+          <p class="hint">Só o número de dias de viagem é INFORMATIVO, não afeta o preço.</p>
           <div class="table-scroll"><div id="serviceEditor"></div></div>
           <button class="btn" id="saveService" type="button" style="margin-top:1rem">Salvar no banco</button>
           <p class="form-msg" id="serviceMsg"></p>
