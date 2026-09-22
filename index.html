@@ -1207,43 +1207,71 @@ function calculateQuote({ routeId, partnerId, vehicleId, serviceLevelId, price, 
  * ============================================================ */
 const CFG_DOC = "config/regras";
 let avulsaRotas = [];
+let configLoadedOnce = false;
 
-async function loadConfigFromDb() {
-  if (!db) return;
-  try {
-    const snap = await getDoc(doc(db, "config", "regras"));
-    if (snap.exists()) {
-      const remote = snap.data();
-      CONFIG = {
-        vehicles:      remote.vehicles      ?? DEFAULT_CONFIG.vehicles,
-        serviceLevels: remote.serviceLevels ?? DEFAULT_CONFIG.serviceLevels,
-        partners:      remote.partners      ?? DEFAULT_CONFIG.partners,
-        routes:        remote.routes        ?? DEFAULT_CONFIG.routes,
-        icmsTable:     remote.icmsTable     ?? DEFAULT_CONFIG.icmsTable,
-        issTable:      remote.issTable      ?? DEFAULT_CONFIG.issTable
-      };
-      setDbStatus("online", "banco: regras carregadas");
-    } else {
-      // Primeira vez que o site roda: não existe documento "config/regras" ainda.
-      // Grava o padrão (DEFAULT_CONFIG) no banco de uma vez só, e passa a
-      // usar exclusivamente o banco dali em diante — o hardcoded deixa de
-      // ser consultado depois deste momento.
-      CONFIG = structuredClone(DEFAULT_CONFIG);
-      await setDoc(doc(db, "config", "regras"), {
-        vehicles: CONFIG.vehicles,
-        serviceLevels: CONFIG.serviceLevels,
-        partners: CONFIG.partners,
-        routes: CONFIG.routes,
-        icmsTable: CONFIG.icmsTable,
-        issTable: CONFIG.issTable,
-        atualizadoEm: serverTimestamp()
+function applyRemoteConfig(remote) {
+  CONFIG = {
+    vehicles:      remote.vehicles      ?? DEFAULT_CONFIG.vehicles,
+    serviceLevels: remote.serviceLevels ?? DEFAULT_CONFIG.serviceLevels,
+    partners:      remote.partners      ?? DEFAULT_CONFIG.partners,
+    routes:        remote.routes        ?? DEFAULT_CONFIG.routes,
+    icmsTable:     remote.icmsTable     ?? DEFAULT_CONFIG.icmsTable,
+    issTable:      remote.issTable      ?? DEFAULT_CONFIG.issTable
+  };
+}
+
+// Carrega a config uma vez (bloqueante, usado no init antes de liberar a
+// tela) e a partir daí passa a escutar o documento em tempo real: qualquer
+// "Salvar no banco" feito em QUALQUER aba/navegador atualiza esta sessão
+// sozinha, sem precisar de F5.
+function watchConfig() {
+  return new Promise((resolve) => {
+    if (!db) { resolve(); return; }
+    try {
+      const ref = doc(db, "config", "regras");
+      onSnapshot(ref, async (snap) => {
+        if (snap.exists()) {
+          applyRemoteConfig(snap.data());
+          setDbStatus("online", "banco: regras carregadas");
+        } else if (!configLoadedOnce) {
+          // Primeira vez que o site roda: não existe documento "config/regras"
+          // ainda. Grava o padrão (DEFAULT_CONFIG) no banco de uma vez só; o
+          // próprio onSnapshot acima recebe essa gravação de volta e re-aplica.
+          CONFIG = structuredClone(DEFAULT_CONFIG);
+          try {
+            await setDoc(ref, {
+              vehicles: CONFIG.vehicles,
+              serviceLevels: CONFIG.serviceLevels,
+              partners: CONFIG.partners,
+              routes: CONFIG.routes,
+              icmsTable: CONFIG.icmsTable,
+              issTable: CONFIG.issTable,
+              atualizadoEm: serverTimestamp()
+            });
+            setDbStatus("online", "banco: padrão gravado");
+          } catch (err) {
+            console.error("Erro ao gravar config padrão:", err);
+            setDbStatus("offline", "banco: sem escrita");
+          }
+        }
+        if (!configLoadedOnce) {
+          configLoadedOnce = true;
+          resolve();
+        } else {
+          // Config mudou por causa de um "Salvar no banco" feito nesta aba ou
+          // em outra: re-renderiza tudo que depende de CONFIG.
+          refreshAfterConfigChange();
+        }
+      }, (err) => {
+        console.error("Erro no listener de config:", err);
+        setDbStatus("offline", "banco: sem leitura");
+        if (!configLoadedOnce) { configLoadedOnce = true; resolve(); }
       });
-      setDbStatus("online", "banco: padrão gravado");
+    } catch (err) {
+      console.error(err);
+      if (!configLoadedOnce) { configLoadedOnce = true; resolve(); }
     }
-  } catch (err) {
-    console.error("Erro ao ler config:", err);
-    setDbStatus("offline", "banco: sem leitura");
-  }
+  });
 }
 
 async function saveConfigPart(part, value, msgEl) {
@@ -3571,7 +3599,7 @@ async function init() {
   setupConfigSaves();
   setupFiscalEditGate();
 
-  await loadConfigFromDb();
+  await watchConfig();
 
   populateSelects();
   updateRoutePreview();
