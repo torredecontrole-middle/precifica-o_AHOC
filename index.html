@@ -525,7 +525,7 @@ footer { text-align: center; color: var(--text-muted); font-size: 0.8rem; paddin
         <div class="panel">
           <h2>Evolução da margem (%) mês a mês</h2>
           <div class="chart-wrap" id="marginChart"></div>
-          <p class="hint" style="margin-top:0.7rem">Linha de margem simulada mês a mês. Vermelho abaixo de 11%, âmbar entre 11% e 14,9%, verde a partir de 15%.</p>
+          <p class="hint" style="margin-top:0.7rem">Linha de margem simulada mês a mês. Vermelho abaixo de 11%, âmbar entre 11% e 20%, verde acima de 20%.</p>
         </div>
         <div class="panel">
           <h2>Ranking de parceiros por margem</h2>
@@ -1934,7 +1934,7 @@ const IMPORT_HEADER_MAP = {
   cidadeiss: "cidadeIss", cidade: "cidadeIss",
   veiculo: "veiculo", tipologia: "veiculo",
   custosimulado: "frete", simuladordecusto: "frete", frete: "frete", valorpagarfrete: "frete", pagarfrete: "frete",
-  pedagio: "pedagio", valorpagarpedagio: "frete", pagarpedagio: "pedagio",
+  pedagio: "pedagio", valorpagarpedagio: "pedagio", pagarpedagio: "pedagio",
   preco: "valorReceber", valorreceber: "valorReceber", receber: "valorReceber", valorareceber: "valorReceber"
 };
 
@@ -2404,8 +2404,7 @@ function validateImportRoute(codigoRaw, legsRaw, groupIdx, seenIds) {
       ufDestino: l.ufDestino,
       cidadeIss: l.cidadeIss,
       distanceKm: l.distanceKm,
-      icms: l.icms,
-      lat2: l.lat2, lng2: l.lng2
+      lat2: l.lat2 ?? null, lng2: l.lng2 ?? null
     }))
   };
 
